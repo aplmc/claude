@@ -1,0 +1,1310 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0d0f12" />
+<title>Home Inventory</title>
+<style>
+:root{
+  --bg:#0d0f12; --surface:#16191e; --surface-2:#1d2128; --surface-3:#252a32;
+  --line:#2a2f37; --line-soft:#22262d;
+  --text:#e8eaed; --text-2:#a4abb5; --text-3:#6b727c;
+  --accent:#d4af37; --accent-soft:#3a3320; --accent-text:#f0d98a;
+  --blue:#5b9bd5; --red:#e07a6f; --green:#6cc08b; --amber:#e0a44a;
+  --tap:46px; --radius:14px; --radius-sm:10px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  font-size:16px;line-height:1.45;overscroll-behavior-y:none;height:100%;}
+body{-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none;font-size:16px;}
+input,select,textarea{font-family:inherit;font-size:16px;}
+input,textarea{color:var(--text);}
+.app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;}
+
+/* ---- Top bar ---- */
+.topbar{position:sticky;top:0;z-index:30;background:rgba(13,15,18,.86);
+  backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);
+  padding:calc(var(--safe-t) + 12px) 16px 12px;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;gap:12px;}
+.topbar h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em;flex:1;}
+.topbar .crumb{font-size:13px;color:var(--text-3);font-weight:500;}
+.iconbtn{width:var(--tap);height:var(--tap);border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--surface-2);color:var(--text-2);font-size:20px;flex:none;
+  transition:background .15s,transform .1s;}
+.iconbtn:active{transform:scale(.92);background:var(--surface-3);}
+
+/* ---- Screen container ---- */
+.screen{flex:1;padding:16px 16px 120px;display:none;animation:fade .22s ease;}
+.screen.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+/* ---- Tab bar ---- */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:rgba(13,15,18,.92);backdrop-filter:saturate(160%) blur(16px);
+  -webkit-backdrop-filter:saturate(160%) blur(16px);border-top:1px solid var(--line-soft);
+  display:flex;padding:8px 8px calc(var(--safe-b) + 8px);max-width:520px;margin:0 auto;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;
+  color:var(--text-3);font-size:11px;font-weight:600;letter-spacing:.01em;transition:color .15s;}
+.tab .ico{font-size:23px;line-height:1;}
+.tab.active{color:var(--accent);}
+.tab:active{transform:scale(.94);}
+
+/* ---- Cards / lists ---- */
+.card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:12px;}
+.row{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--surface);
+  border:1px solid var(--line-soft);border-radius:var(--radius-sm);margin-bottom:8px;
+  transition:background .12s,transform .08s;}
+.row:active{background:var(--surface-2);transform:scale(.992);}
+.row .main{flex:1;min-width:0;}
+.row .name{font-size:15.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row .sub{font-size:12.5px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row .ico{font-size:21px;flex:none;width:26px;text-align:center;}
+.qtychip{flex:none;min-width:30px;height:26px;padding:0 9px;border-radius:8px;background:var(--accent-soft);
+  color:var(--accent-text);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.chev{color:var(--text-3);font-size:18px;flex:none;}
+
+.section-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);margin:18px 2px 9px;}
+.empty{text-align:center;color:var(--text-3);padding:48px 20px;font-size:14.5px;}
+.empty .big{font-size:40px;margin-bottom:12px;opacity:.5;}
+
+/* ---- Tags ---- */
+.tags{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;background:var(--surface-3);
+  color:var(--text-2);border:1px solid var(--line);display:inline-flex;align-items:center;gap:5px;}
+.tag.sel{background:var(--accent-soft);color:var(--accent-text);border-color:transparent;}
+.tag .x{font-size:13px;opacity:.7;}
+
+/* ---- Form ---- */
+label.fld{display:block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-3);margin:0 2px 7px;}
+.input{width:100%;height:var(--tap);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:0 14px;color:var(--text);outline:none;transition:border .15s;}
+.input:focus{border-color:var(--accent);}
+textarea.input{height:auto;padding:12px 14px;line-height:1.4;resize:vertical;}
+.field{margin-bottom:18px;}
+
+.btn{width:100%;height:var(--tap);border-radius:var(--radius-sm);background:var(--accent);
+  color:#1a1500;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .08s,opacity .15s;}
+.btn:active{transform:scale(.985);}
+.btn:disabled{opacity:.4;}
+.btn.secondary{background:var(--surface-3);color:var(--text);}
+.btn.danger{background:var(--red);color:#2a0d09;}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text-2);}
+
+/* ---- Type-ahead picker ---- */
+.picker-wrap{position:relative;}
+.suggest{position:absolute;left:0;right:0;top:calc(var(--tap) + 6px);z-index:20;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.45);}
+.suggest .opt{padding:11px 14px;font-size:14.5px;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;gap:9px;}
+.suggest .opt:last-child{border-bottom:none;}
+.suggest .opt:active{background:var(--surface-3);}
+.suggest .opt .path{font-size:11.5px;color:var(--text-3);margin-left:auto;max-width:45%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+.suggest .head{padding:7px 14px 5px;font-size:10.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text-3);background:var(--surface);}
+
+.chiprow{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;}
+.chip{padding:8px 13px;border-radius:20px;background:var(--surface-2);border:1px solid var(--line);
+  font-size:13.5px;color:var(--text-2);font-weight:500;display:inline-flex;align-items:center;gap:6px;
+  white-space:nowrap;max-width:100%;}
+.chip .ico{font-size:15px;}
+.chip:active{background:var(--surface-3);}
+
+/* ---- Tree ---- */
+.tree-node{}
+.tree-row{display:flex;align-items:center;gap:8px;padding:11px 8px;border-radius:9px;
+  transition:background .1s;}
+.tree-row:active{background:var(--surface-2);}
+.tw-toggle{width:24px;text-align:center;color:var(--text-3);font-size:13px;flex:none;
+  transition:transform .18s;}
+.tw-toggle.open{transform:rotate(90deg);}
+.tw-ico{font-size:19px;flex:none;}
+.tw-name{flex:1;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tw-count{font-size:11.5px;color:var(--text-3);background:var(--surface-2);padding:2px 8px;border-radius:10px;flex:none;}
+.tw-badge{font-size:9.5px;font-weight:800;letter-spacing:.05em;color:var(--accent-text);
+  background:var(--accent-soft);padding:2px 6px;border-radius:5px;flex:none;}
+.tree-children{margin-left:14px;border-left:1px solid var(--line-soft);padding-left:4px;
+  overflow:hidden;}
+
+/* ---- Modal / sheet ---- */
+.scrim{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);display:none;
+  align-items:flex-end;justify-content:center;animation:scrimIn .2s;}
+.scrim.show{display:flex;}
+@keyframes scrimIn{from{opacity:0;}to{opacity:1;}}
+.sheet{width:100%;max-width:520px;background:var(--surface);border-radius:22px 22px 0 0;
+  border-top:1px solid var(--line);padding:10px 18px calc(var(--safe-b) + 22px);
+  max-height:90vh;overflow-y:auto;animation:sheetIn .26s cubic-bezier(.2,.9,.3,1);}
+@keyframes sheetIn{from{transform:translateY(100%);}to{transform:none;}}
+.sheet .grab{width:38px;height:4.5px;border-radius:3px;background:var(--line);margin:4px auto 14px;}
+.sheet h2{font-size:20px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em;}
+.sheet .subtitle{font-size:13px;color:var(--text-3);margin:0 0 16px;}
+
+/* ---- Stepper ---- */
+.stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin:18px 0;}
+.stepbtn{width:60px;height:60px;border-radius:50%;background:var(--surface-3);font-size:30px;font-weight:300;
+  display:flex;align-items:center;justify-content:center;color:var(--text);transition:transform .08s,background .12s;}
+.stepbtn:active{transform:scale(.9);background:var(--accent-soft);color:var(--accent-text);}
+.stepval{font-size:46px;font-weight:700;min-width:90px;text-align:center;font-variant-numeric:tabular-nums;}
+.preview{text-align:center;font-size:15px;color:var(--text-2);margin:2px 0 18px;}
+.preview b{color:var(--accent-text);}
+.preview .arrow{color:var(--text-3);margin:0 8px;}
+
+/* ---- Log ---- */
+.logitem{display:flex;gap:11px;padding:11px 4px;border-bottom:1px solid var(--line-soft);}
+.logitem .dot{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;
+  justify-content:center;font-size:14px;background:var(--surface-3);}
+.logitem .lmain{flex:1;min-width:0;}
+.logitem .ltext{font-size:14px;line-height:1.35;}
+.logitem .ltext b{font-weight:600;}
+.logitem .ltime{font-size:11.5px;color:var(--text-3);margin-top:2px;}
+.dot.add{background:rgba(108,192,139,.16);color:var(--green);}
+.dot.move{background:rgba(91,155,213,.16);color:var(--blue);}
+.dot.qty{background:rgba(224,164,74,.16);color:var(--amber);}
+.dot.del{background:rgba(224,122,111,.16);color:var(--red);}
+.dot.loc{background:var(--accent-soft);color:var(--accent-text);}
+
+/* ---- misc ---- */
+.searchbar{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:13px;padding:0 14px;height:50px;margin-bottom:6px;}
+.searchbar input{flex:1;background:none;border:none;outline:none;height:100%;}
+.searchbar .si{font-size:19px;color:var(--text-3);}
+.filterscroll{display:flex;gap:7px;overflow-x:auto;padding:10px 2px 4px;margin:0 -2px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.filterscroll::-webkit-scrollbar{display:none;}
+.detail-meta{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);margin-bottom:4px;}
+.detail-path{font-size:13px;color:var(--text-3);margin-bottom:18px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.detail-path .seg{color:var(--text-2);}
+.detail-path .sep{color:var(--text-3);opacity:.6;}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0;}
+.actions .btn{font-size:14.5px;}
+.toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 92px);transform:translateX(-50%) translateY(20px);
+  background:var(--surface-3);color:var(--text);padding:12px 20px;border-radius:24px;font-size:14px;font-weight:500;
+  border:1px solid var(--line);z-index:120;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:90%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.seg-toggle{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:4px;gap:4px;margin-bottom:16px;}
+.seg-toggle button{flex:1;height:38px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text-3);transition:.15s;}
+.seg-toggle button.on{background:var(--accent);color:#1a1500;}
+.divider{height:1px;background:var(--line-soft);margin:16px 0;}
+.linkrow{display:flex;align-items:center;gap:12px;padding:15px 14px;background:var(--surface);
+  border:1px solid var(--line-soft);border-radius:var(--radius-sm);margin-bottom:8px;}
+.linkrow .ico{font-size:20px;width:26px;text-align:center;color:var(--text-2);}
+.linkrow .lt{flex:1;}
+.linkrow .lt .t{font-size:15px;font-weight:500;}
+.linkrow .lt .d{font-size:12.5px;color:var(--text-3);margin-top:1px;}
+.graphwrap{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
+  overflow:hidden;height:62vh;position:relative;}
+.graphwrap svg{width:100%;height:100%;touch-action:none;display:block;}
+.gnode-label{font-size:11px;font-weight:600;fill:var(--text);pointer-events:none;}
+.hint{font-size:12.5px;color:var(--text-3);text-align:center;margin-top:8px;}
+.mini-note{font-size:12.5px;color:var(--text-3);line-height:1.4;margin:6px 2px 0;}
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <button class="iconbtn" id="backBtn" style="display:none" aria-label="Back">‹</button>
+    <h1 id="title">Inventory</h1>
+    <button class="iconbtn" id="settingsBtn" aria-label="Settings">⚙</button>
+  </div>
+
+  <!-- ADD -->
+  <div class="screen" id="screen-add"></div>
+  <!-- SEARCH -->
+  <div class="screen" id="screen-search"></div>
+  <!-- MAP -->
+  <div class="screen" id="screen-map"></div>
+  <!-- LOG -->
+  <div class="screen" id="screen-log"></div>
+  <!-- SETTINGS (sub-screen) -->
+  <div class="screen" id="screen-settings"></div>
+  <!-- DETAIL (sub-screen) -->
+  <div class="screen" id="screen-detail"></div>
+
+  <div class="tabbar" id="tabbar">
+    <button class="tab" data-tab="add"><span class="ico">＋</span>Add</button>
+    <button class="tab" data-tab="search"><span class="ico">🔍</span>Search</button>
+    <button class="tab" data-tab="map"><span class="ico">🗺</span>Map</button>
+    <button class="tab" data-tab="log"><span class="ico">≡</span>Log</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   HOME INVENTORY  —  state + persistence + helpers
+   ========================================================================= */
+const SEED = {"types":[{"id":"ty_room","name":"Room","icon":"🏠"},{"id":"ty_shelf","name":"Shelf","icon":"🗄️"},{"id":"ty_tub","name":"Tub","icon":"📦"},{"id":"ty_box","name":"Box","icon":"🗃️"},{"id":"ty_toolbox","name":"Toolbox","icon":"🧰"},{"id":"ty_bag","name":"Bag","icon":"👜"},{"id":"ty_compartment","name":"Compartment","icon":"🔲"}],"tags":["adhesive","baby","batteries","car","cleaning","drywall","electrical","electronics","garden","hardware","kitchen","lighting","lubricant","maintenance","outdoor","paint","pest-control","pet","plumbing","security","tape","tools","touchup","wood","work"],"tagDict":{"bulb":"lighting","lightbulb":"lighting","led":"lighting","light":"lighting","tape":"tape","adhesive":"adhesive","glue":"adhesive","pads":"adhesive","paint":"paint","stain":"paint","primer":"paint","battery":"batteries","batteries":"batteries","ant":"pest-control","fly":"pest-control","mosquito":"pest-control","insect":"pest-control","bait":"pest-control","insecticide":"pest-control","cat":"pet","dog":"pet","pet":"pet","plunger":"plumbing","drain":"plumbing","faucet":"plumbing","sink":"plumbing","plumber":"plumbing","cleaner":"cleaning","cleaning":"cleaning","lysol":"cleaning","scrubber":"cleaning","brush":"cleaning","towel":"cleaning","baby":"baby","lock":"baby","gate":"baby","outlet":"electrical","switch":"electrical","conduit":"electrical","sensor":"electronics","webcam":"electronics","detector":"electronics","dyson":"electronics","crowbar":"tools","mallet":"tools","wrench":"tools","ratchet":"tools","wd-40":"lubricant","lube":"lubricant","lubricant":"lubricant","sandpaper":"drywall","drywall":"drywall","kitchen":"kitchen","cooler":"kitchen","garden":"garden","soil":"garden","car":"car","window":"car","handle":"hardware","hinge":"hardware","cover":"hardware","kit":"hardware"},"locations":[{"id":"rm_garage","name":"Garage","typeId":"ty_room","movable":false,"parentId":null,"archived":false},{"id":"rm_coat","name":"Coat Closet","typeId":"ty_room","movable":false,"parentId":null,"archived":false},{"id":"rm_understairs","name":"Under Stairs Closet","typeId":"ty_room","movable":false,"parentId":null,"archived":false},{"id":"rm_pantry","name":"Pantry","typeId":"ty_room","movable":false,"parentId":null,"archived":false},{"id":"sh_desk","name":"Desk","typeId":"ty_shelf","movable":false,"parentId":"rm_garage","archived":false},{"id":"sh_abovedesk","name":"Above Desk","typeId":"ty_shelf","movable":false,"parentId":"rm_garage","archived":false},{"id":"sh_underdesk","name":"Under/beside Desk","typeId":"ty_shelf","movable":false,"parentId":"rm_garage","archived":false},{"id":"sh_exit","name":"Shelf near garage exit","typeId":"ty_shelf","movable":false,"parentId":"rm_garage","archived":false},{"id":"tub_a_large","name":"Tub A - Large","typeId":"ty_tub","movable":true,"parentId":"rm_garage","archived":false},{"id":"tub_a_large_lid","name":"Lid","typeId":"ty_compartment","movable":false,"parentId":"tub_a_large","archived":false},{"id":"tub_a_large_main","name":"Tub","typeId":"ty_compartment","movable":false,"parentId":"tub_a_large","archived":false},{"id":"tub_a_small","name":"Tub A - Small","typeId":"ty_tub","movable":true,"parentId":"rm_garage","archived":false},{"id":"tub_a_small_lid","name":"Lid","typeId":"ty_compartment","movable":false,"parentId":"tub_a_small","archived":false},{"id":"tub_a_small_main","name":"Tub","typeId":"ty_compartment","movable":false,"parentId":"tub_a_small","archived":false},{"id":"tub_b_large","name":"Tub B - Large","typeId":"ty_tub","movable":true,"parentId":"rm_garage","archived":false},{"id":"tub_b_large_lid","name":"Lid","typeId":"ty_compartment","movable":false,"parentId":"tub_b_large","archived":false},{"id":"tub_b_large_main","name":"Tub","typeId":"ty_compartment","movable":false,"parentId":"tub_b_large","archived":false},{"id":"tub_b_small","name":"Tub B - Small","typeId":"ty_tub","movable":true,"parentId":"rm_garage","archived":false},{"id":"tub_b_small_lid","name":"Lid","typeId":"ty_compartment","movable":false,"parentId":"tub_b_small","archived":false},{"id":"tub_b_small_main","name":"Tub","typeId":"ty_compartment","movable":false,"parentId":"tub_b_small","archived":false},{"id":"toolbox","name":"Toolbox","typeId":"ty_toolbox","movable":true,"parentId":"rm_garage","archived":false},{"id":"battery_box","name":"Battery Box","typeId":"ty_box","movable":true,"parentId":"rm_coat","archived":false}],"items":[{"id":"it_0","name":"Shop towel","qty":1,"tags":["cleaning"],"locationId":"rm_garage","archived":false},{"id":"it_1","name":"Mini crowbar","qty":1,"tags":["tools"],"locationId":"sh_desk","archived":false},{"id":"it_2","name":"Rubber mallet","qty":1,"tags":["tools"],"locationId":"sh_desk","archived":false},{"id":"it_3","name":"Free all garage door lubricant","qty":1,"tags":["lubricant","maintenance"],"locationId":"sh_abovedesk","archived":false},{"id":"it_4","name":"Wd-40","qty":1,"tags":["lubricant","maintenance"],"locationId":"sh_abovedesk","archived":false},{"id":"it_5","name":"Gorilla 1.8\" outdoor all weather tape","qty":1,"tags":["adhesive","tape"],"locationId":"sh_abovedesk","archived":false},{"id":"it_6","name":"Pavement cleaner sprayer","qty":1,"tags":["cleaning","outdoor"],"locationId":"sh_underdesk","archived":false},{"id":"it_7","name":"30 seconds spray and walk away cleaner","qty":1,"tags":["cleaning","outdoor"],"locationId":"sh_underdesk","archived":false},{"id":"it_8","name":"Simple clean oxy solve deck cleaner","qty":1,"tags":["cleaning","outdoor"],"locationId":"sh_underdesk","archived":false},{"id":"it_9","name":"Veeva logitech webcam","qty":1,"tags":["electronics","work"],"locationId":"sh_exit","archived":false},{"id":"it_10","name":"Veeva monitor stand","qty":2,"tags":["electronics","work"],"locationId":"sh_exit","archived":false},{"id":"it_11","name":"5W E26 LED Light Bulb","qty":4,"tags":["lighting"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_12","name":"23W KL1206 Light Bulb","qty":1,"tags":["lighting"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_13","name":"Picture hanging kit","qty":1,"tags":["hardware"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_14","name":"Gorilla 1 inch double sided tape","qty":1,"tags":["adhesive","tape"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_15","name":"0.75\" clear rubber pads adhesive","qty":8,"tags":["adhesive","hardware"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_16","name":"1\" clear rubber pads adhesive","qty":8,"tags":["adhesive","hardware"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_17","name":"Love Every Kitchen Extra Parts and Tether","qty":2,"tags":["baby","kitchen"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_18","name":"Car window magnetic cover for Summer","qty":1,"tags":["car","baby"],"locationId":"tub_a_large_lid","archived":false},{"id":"it_19","name":"Moen matte black door handle set","qty":1,"tags":["hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_20","name":"Stair furniture touch up pens","qty":1,"tags":["paint","touchup"],"locationId":"tub_a_large_main","archived":false},{"id":"it_21","name":"Granite sealing sponges","qty":1,"tags":["cleaning","maintenance"],"locationId":"tub_a_large_main","archived":false},{"id":"it_22","name":"Deako switches","qty":11,"tags":["electrical","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_23","name":"Clare Home Motion Detectors","qty":4,"tags":["electronics","security"],"locationId":"tub_a_large_main","archived":false},{"id":"it_24","name":"Packing tape","qty":5,"tags":["adhesive","tape"],"locationId":"tub_a_large_main","archived":false},{"id":"it_25","name":"Vaseline tub","qty":1,"tags":["maintenance"],"locationId":"tub_a_large_main","archived":false},{"id":"it_26","name":"Door hinge lube","qty":1,"tags":["lubricant","maintenance"],"locationId":"tub_a_large_main","archived":false},{"id":"it_27","name":"Outlet cover box","qty":1,"tags":["electrical","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_28","name":"Outlet cover regular","qty":1,"tags":["electrical","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_29","name":"Outlet cover rectangle","qty":1,"tags":["electrical","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_30","name":"Outlet cover conduit","qty":1,"tags":["electrical","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_31","name":"Baby gate wall cups","qty":4,"tags":["baby","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_32","name":"Magnetic Baby cabinet locks","qty":6,"tags":["baby","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_33","name":"Masking tape","qty":1,"tags":["adhesive","tape","paint"],"locationId":"tub_a_large_main","archived":false},{"id":"it_34","name":"Foam edge adhesive furniture","qty":1,"tags":["baby","adhesive"],"locationId":"tub_a_large_main","archived":false},{"id":"it_35","name":"Drawer latch locks","qty":19,"tags":["baby","hardware"],"locationId":"tub_a_large_main","archived":false},{"id":"it_36","name":"Clare Home panels and sensors (old alarm system)","qty":1,"tags":["electronics","security"],"locationId":"tub_a_small_lid","archived":false},{"id":"it_37","name":"A19 E26 LED lightbulb 3,000k (soft/warm)","qty":17,"tags":["lighting"],"locationId":"tub_a_small_main","archived":false},{"id":"it_38","name":"A19 Bulbrite 3000k home original lightbulbs","qty":3,"tags":["lighting"],"locationId":"tub_a_small_main","archived":false},{"id":"it_39","name":"Foam paint brush for wall touchups","qty":1,"tags":["paint","touchup"],"locationId":"tub_a_small_main","archived":false},{"id":"it_40","name":"Sheets of sandpaper for drywall","qty":5,"tags":["drywall","maintenance"],"locationId":"tub_a_small_main","archived":false},{"id":"it_41","name":"Dust cleaning gel","qty":2,"tags":["cleaning"],"locationId":"tub_b_large_lid","archived":false},{"id":"it_42","name":"Oxo handheld scrubber bristle brush","qty":1,"tags":["cleaning"],"locationId":"tub_b_large_lid","archived":false},{"id":"it_43","name":"Oxo detail bristle brush","qty":1,"tags":["cleaning"],"locationId":"tub_b_large_lid","archived":false},{"id":"it_44","name":"Car part? Ratchet lever thing","qty":1,"tags":["car","tools"],"locationId":"tub_b_large_lid","archived":false},{"id":"it_45","name":"Extra cat bowls","qty":1,"tags":["pet"],"locationId":"tub_b_large_main","archived":false},{"id":"it_46","name":"Elfin cat water fountain filters","qty":11,"tags":["pet"],"locationId":"tub_b_large_main","archived":false},{"id":"it_47","name":"Insect bait Fly Magnet fly trap","qty":1,"tags":["pest-control"],"locationId":"tub_b_large_main","archived":false},{"id":"it_48","name":"Liquid ant baits","qty":4,"tags":["pest-control"],"locationId":"tub_b_large_main","archived":false},{"id":"it_49","name":"Insecticide soap","qty":1,"tags":["pest-control"],"locationId":"tub_b_large_main","archived":false},{"id":"it_50","name":"Sticky fly traps","qty":1,"tags":["pest-control"],"locationId":"tub_b_large_main","archived":false},{"id":"it_51","name":"Thermacell Mosquito repellent device","qty":1,"tags":["pest-control","outdoor"],"locationId":"tub_b_large_main","archived":false},{"id":"it_52","name":"Cocktail premix bottles with labels","qty":2,"tags":["kitchen"],"locationId":"tub_b_large_main","archived":false},{"id":"it_53","name":"Mosquito bite plant pellets","qty":1,"tags":["pest-control","garden"],"locationId":"tub_b_large_main","archived":false},{"id":"it_54","name":"Bag of Rice husks for soil topper","qty":1,"tags":["garden"],"locationId":"tub_b_large_main","archived":false},{"id":"it_55","name":"Drain snakes","qty":4,"tags":["plumbing"],"locationId":"tub_b_large_main","archived":false},{"id":"it_56","name":"Lysol spray","qty":1,"tags":["cleaning"],"locationId":"tub_b_small_lid","archived":false},{"id":"it_57","name":"Krylon fusion metallic finish rubbed bronze","qty":1,"tags":["paint"],"locationId":"tub_b_small_lid","archived":false},{"id":"it_58","name":"Sprout kitchen tower instructions and plate","qty":1,"tags":["kitchen","baby"],"locationId":"tub_b_small_lid","archived":false},{"id":"it_59","name":"Under sink soap dispenser bottle","qty":1,"tags":["kitchen","plumbing"],"locationId":"tub_b_small_lid","archived":false},{"id":"it_60","name":"Plunger","qty":1,"tags":["plumbing"],"locationId":"tub_b_small_main","archived":false},{"id":"it_61","name":"Shoptowel","qty":1,"tags":["cleaning"],"locationId":"tub_b_small_main","archived":false},{"id":"it_62","name":"Faucet freeze protector sock","qty":2,"tags":["plumbing","outdoor"],"locationId":"tub_b_small_main","archived":false},{"id":"it_63","name":"Lazy susans oxo grip style","qty":2,"tags":["kitchen"],"locationId":"tub_b_small_main","archived":false},{"id":"it_64","name":"Dyson v11 attachments","qty":1,"tags":["cleaning","electronics"],"locationId":"tub_b_small_main","archived":false},{"id":"it_65","name":"Plumber under sink tightener wrench","qty":1,"tags":["plumbing","tools"],"locationId":"tub_b_small_main","archived":false},{"id":"it_66","name":"Silica gel desiccant","qty":1,"tags":["maintenance"],"locationId":"toolbox","archived":false},{"id":"it_67","name":"Wet n fix drywall hole repair","qty":1,"tags":["drywall","maintenance"],"locationId":"toolbox","archived":false},{"id":"it_68","name":"Ceiling paint","qty":1,"tags":["paint"],"locationId":"rm_coat","archived":false},{"id":"it_69","name":"Wall paint","qty":1,"tags":["paint"],"locationId":"rm_coat","archived":false},{"id":"it_70","name":"Trim paint","qty":1,"tags":["paint"],"locationId":"rm_coat","archived":false},{"id":"it_71","name":"Stair stain","qty":1,"tags":["paint","wood"],"locationId":"rm_coat","archived":false},{"id":"it_72","name":"AA Batteries","qty":1,"tags":["batteries"],"locationId":"battery_box","archived":false},{"id":"it_73","name":"AAA Batteries","qty":1,"tags":["batteries"],"locationId":"battery_box","archived":false},{"id":"it_74","name":"CR2032 Lithium Coin Cell Batteries","qty":1,"tags":["batteries"],"locationId":"battery_box","archived":false},{"id":"it_75","name":"Trader joes blue cooler bag","qty":1,"tags":["kitchen","outdoor"],"locationId":"rm_understairs","archived":false},{"id":"it_76","name":"Yeti orange zip cooler","qty":1,"tags":["kitchen","outdoor"],"locationId":"rm_understairs","archived":false}],"log":[{"id":"lg_0","ts":1777638807041,"type":"location_create","locationId":"rm_garage","name":"Garage","toParentId":null},{"id":"lg_1","ts":1777638927041,"type":"location_create","locationId":"rm_coat","name":"Coat Closet","toParentId":null},{"id":"lg_2","ts":1777639047041,"type":"location_create","locationId":"rm_understairs","name":"Under Stairs Closet","toParentId":null},{"id":"lg_3","ts":1777639167041,"type":"location_create","locationId":"rm_pantry","name":"Pantry","toParentId":null},{"id":"lg_4","ts":1777639287041,"type":"location_create","locationId":"sh_desk","name":"Desk","toParentId":"rm_garage"},{"id":"lg_5","ts":1777639407041,"type":"location_create","locationId":"sh_abovedesk","name":"Above Desk","toParentId":"rm_garage"},{"id":"lg_6","ts":1777639527041,"type":"location_create","locationId":"sh_underdesk","name":"Under/beside Desk","toParentId":"rm_garage"},{"id":"lg_7","ts":1777639647041,"type":"location_create","locationId":"sh_exit","name":"Shelf near garage exit","toParentId":"rm_garage"},{"id":"lg_8","ts":1777639767041,"type":"item_add","itemId":"it_0","name":"Shop towel","qty":1,"toLocationId":"rm_garage"},{"id":"lg_9","ts":1777639887041,"type":"item_add","itemId":"it_1","name":"Mini crowbar","qty":1,"toLocationId":"sh_desk"},{"id":"lg_10","ts":1777640007041,"type":"item_add","itemId":"it_2","name":"Rubber mallet","qty":1,"toLocationId":"sh_desk"},{"id":"lg_11","ts":1777640127041,"type":"item_add","itemId":"it_3","name":"Free all garage door lubricant","qty":1,"toLocationId":"sh_abovedesk"},{"id":"lg_12","ts":1777640247041,"type":"item_add","itemId":"it_4","name":"Wd-40","qty":1,"toLocationId":"sh_abovedesk"},{"id":"lg_13","ts":1777640367041,"type":"item_add","itemId":"it_5","name":"Gorilla 1.8\" outdoor all weather tape","qty":1,"toLocationId":"sh_abovedesk"},{"id":"lg_14","ts":1777640487041,"type":"item_add","itemId":"it_6","name":"Pavement cleaner sprayer","qty":1,"toLocationId":"sh_underdesk"},{"id":"lg_15","ts":1777640607041,"type":"item_add","itemId":"it_7","name":"30 seconds spray and walk away cleaner","qty":1,"toLocationId":"sh_underdesk"},{"id":"lg_16","ts":1777640727041,"type":"item_add","itemId":"it_8","name":"Simple clean oxy solve deck cleaner","qty":1,"toLocationId":"sh_underdesk"},{"id":"lg_17","ts":1777640847041,"type":"item_add","itemId":"it_9","name":"Veeva logitech webcam","qty":1,"toLocationId":"sh_exit"},{"id":"lg_18","ts":1777640967041,"type":"item_add","itemId":"it_10","name":"Veeva monitor stand","qty":2,"toLocationId":"sh_exit"},{"id":"lg_19","ts":1777641087041,"type":"location_create","locationId":"tub_a_large","name":"Tub A - Large","toParentId":"rm_garage"},{"id":"lg_20","ts":1777641207041,"type":"location_create","locationId":"tub_a_large_lid","name":"Lid","toParentId":"tub_a_large"},{"id":"lg_21","ts":1777641327041,"type":"location_create","locationId":"tub_a_large_main","name":"Tub","toParentId":"tub_a_large"},{"id":"lg_22","ts":1777641447041,"type":"item_add","itemId":"it_11","name":"5W E26 LED Light Bulb","qty":4,"toLocationId":"tub_a_large_lid"},{"id":"lg_23","ts":1777641567041,"type":"item_add","itemId":"it_12","name":"23W KL1206 Light Bulb","qty":1,"toLocationId":"tub_a_large_lid"},{"id":"lg_24","ts":1777641687041,"type":"item_add","itemId":"it_13","name":"Picture hanging kit","qty":1,"toLocationId":"tub_a_large_lid"},{"id":"lg_25","ts":1777641807041,"type":"item_add","itemId":"it_14","name":"Gorilla 1 inch double sided tape","qty":1,"toLocationId":"tub_a_large_lid"},{"id":"lg_26","ts":1777641927041,"type":"item_add","itemId":"it_15","name":"0.75\" clear rubber pads adhesive","qty":8,"toLocationId":"tub_a_large_lid"},{"id":"lg_27","ts":1777642047041,"type":"item_add","itemId":"it_16","name":"1\" clear rubber pads adhesive","qty":8,"toLocationId":"tub_a_large_lid"},{"id":"lg_28","ts":1777642167041,"type":"item_add","itemId":"it_17","name":"Love Every Kitchen Extra Parts and Tether","qty":2,"toLocationId":"tub_a_large_lid"},{"id":"lg_29","ts":1777642287041,"type":"item_add","itemId":"it_18","name":"Car window magnetic cover for Summer","qty":1,"toLocationId":"tub_a_large_lid"},{"id":"lg_30","ts":1777642407041,"type":"item_add","itemId":"it_19","name":"Moen matte black door handle set","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_31","ts":1777642527041,"type":"item_add","itemId":"it_20","name":"Stair furniture touch up pens","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_32","ts":1777642647041,"type":"item_add","itemId":"it_21","name":"Granite sealing sponges","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_33","ts":1777642767041,"type":"item_add","itemId":"it_22","name":"Deako switches","qty":11,"toLocationId":"tub_a_large_main"},{"id":"lg_34","ts":1777642887041,"type":"item_add","itemId":"it_23","name":"Clare Home Motion Detectors","qty":4,"toLocationId":"tub_a_large_main"},{"id":"lg_35","ts":1777643007041,"type":"item_add","itemId":"it_24","name":"Packing tape","qty":5,"toLocationId":"tub_a_large_main"},{"id":"lg_36","ts":1777643127041,"type":"item_add","itemId":"it_25","name":"Vaseline tub","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_37","ts":1777643247041,"type":"item_add","itemId":"it_26","name":"Door hinge lube","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_38","ts":1777643367041,"type":"item_add","itemId":"it_27","name":"Outlet cover box","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_39","ts":1777643487041,"type":"item_add","itemId":"it_28","name":"Outlet cover regular","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_40","ts":1777643607041,"type":"item_add","itemId":"it_29","name":"Outlet cover rectangle","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_41","ts":1777643727041,"type":"item_add","itemId":"it_30","name":"Outlet cover conduit","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_42","ts":1777643847041,"type":"item_add","itemId":"it_31","name":"Baby gate wall cups","qty":4,"toLocationId":"tub_a_large_main"},{"id":"lg_43","ts":1777643967041,"type":"item_add","itemId":"it_32","name":"Magnetic Baby cabinet locks","qty":6,"toLocationId":"tub_a_large_main"},{"id":"lg_44","ts":1777644087041,"type":"item_add","itemId":"it_33","name":"Masking tape","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_45","ts":1777644207041,"type":"item_add","itemId":"it_34","name":"Foam edge adhesive furniture","qty":1,"toLocationId":"tub_a_large_main"},{"id":"lg_46","ts":1777644327041,"type":"item_add","itemId":"it_35","name":"Drawer latch locks","qty":19,"toLocationId":"tub_a_large_main"},{"id":"lg_47","ts":1777644447041,"type":"location_create","locationId":"tub_a_small","name":"Tub A - Small","toParentId":"rm_garage"},{"id":"lg_48","ts":1777644567041,"type":"location_create","locationId":"tub_a_small_lid","name":"Lid","toParentId":"tub_a_small"},{"id":"lg_49","ts":1777644687041,"type":"location_create","locationId":"tub_a_small_main","name":"Tub","toParentId":"tub_a_small"},{"id":"lg_50","ts":1777644807041,"type":"item_add","itemId":"it_36","name":"Clare Home panels and sensors (old alarm system)","qty":1,"toLocationId":"tub_a_small_lid"},{"id":"lg_51","ts":1777644927041,"type":"item_add","itemId":"it_37","name":"A19 E26 LED lightbulb 3,000k (soft/warm)","qty":17,"toLocationId":"tub_a_small_main"},{"id":"lg_52","ts":1777645047041,"type":"item_add","itemId":"it_38","name":"A19 Bulbrite 3000k home original lightbulbs","qty":3,"toLocationId":"tub_a_small_main"},{"id":"lg_53","ts":1777645167041,"type":"item_add","itemId":"it_39","name":"Foam paint brush for wall touchups","qty":1,"toLocationId":"tub_a_small_main"},{"id":"lg_54","ts":1777645287041,"type":"item_add","itemId":"it_40","name":"Sheets of sandpaper for drywall","qty":5,"toLocationId":"tub_a_small_main"},{"id":"lg_55","ts":1777645407041,"type":"location_create","locationId":"tub_b_large","name":"Tub B - Large","toParentId":"rm_garage"},{"id":"lg_56","ts":1777645527041,"type":"location_create","locationId":"tub_b_large_lid","name":"Lid","toParentId":"tub_b_large"},{"id":"lg_57","ts":1777645647041,"type":"location_create","locationId":"tub_b_large_main","name":"Tub","toParentId":"tub_b_large"},{"id":"lg_58","ts":1777645767041,"type":"item_add","itemId":"it_41","name":"Dust cleaning gel","qty":2,"toLocationId":"tub_b_large_lid"},{"id":"lg_59","ts":1777645887041,"type":"item_add","itemId":"it_42","name":"Oxo handheld scrubber bristle brush","qty":1,"toLocationId":"tub_b_large_lid"},{"id":"lg_60","ts":1777646007041,"type":"item_add","itemId":"it_43","name":"Oxo detail bristle brush","qty":1,"toLocationId":"tub_b_large_lid"},{"id":"lg_61","ts":1777646127041,"type":"item_add","itemId":"it_44","name":"Car part? Ratchet lever thing","qty":1,"toLocationId":"tub_b_large_lid"},{"id":"lg_62","ts":1777646247041,"type":"item_add","itemId":"it_45","name":"Extra cat bowls","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_63","ts":1777646367041,"type":"item_add","itemId":"it_46","name":"Elfin cat water fountain filters","qty":11,"toLocationId":"tub_b_large_main"},{"id":"lg_64","ts":1777646487041,"type":"item_add","itemId":"it_47","name":"Insect bait Fly Magnet fly trap","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_65","ts":1777646607041,"type":"item_add","itemId":"it_48","name":"Liquid ant baits","qty":4,"toLocationId":"tub_b_large_main"},{"id":"lg_66","ts":1777646727041,"type":"item_add","itemId":"it_49","name":"Insecticide soap","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_67","ts":1777646847041,"type":"item_add","itemId":"it_50","name":"Sticky fly traps","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_68","ts":1777646967041,"type":"item_add","itemId":"it_51","name":"Thermacell Mosquito repellent device","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_69","ts":1777647087041,"type":"item_add","itemId":"it_52","name":"Cocktail premix bottles with labels","qty":2,"toLocationId":"tub_b_large_main"},{"id":"lg_70","ts":1777647207041,"type":"item_add","itemId":"it_53","name":"Mosquito bite plant pellets","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_71","ts":1777647327041,"type":"item_add","itemId":"it_54","name":"Bag of Rice husks for soil topper","qty":1,"toLocationId":"tub_b_large_main"},{"id":"lg_72","ts":1777647447041,"type":"item_add","itemId":"it_55","name":"Drain snakes","qty":4,"toLocationId":"tub_b_large_main"},{"id":"lg_73","ts":1777647567041,"type":"location_create","locationId":"tub_b_small","name":"Tub B - Small","toParentId":"rm_garage"},{"id":"lg_74","ts":1777647687041,"type":"location_create","locationId":"tub_b_small_lid","name":"Lid","toParentId":"tub_b_small"},{"id":"lg_75","ts":1777647807041,"type":"location_create","locationId":"tub_b_small_main","name":"Tub","toParentId":"tub_b_small"},{"id":"lg_76","ts":1777647927041,"type":"item_add","itemId":"it_56","name":"Lysol spray","qty":1,"toLocationId":"tub_b_small_lid"},{"id":"lg_77","ts":1777648047041,"type":"item_add","itemId":"it_57","name":"Krylon fusion metallic finish rubbed bronze","qty":1,"toLocationId":"tub_b_small_lid"},{"id":"lg_78","ts":1777648167041,"type":"item_add","itemId":"it_58","name":"Sprout kitchen tower instructions and plate","qty":1,"toLocationId":"tub_b_small_lid"},{"id":"lg_79","ts":1777648287041,"type":"item_add","itemId":"it_59","name":"Under sink soap dispenser bottle","qty":1,"toLocationId":"tub_b_small_lid"},{"id":"lg_80","ts":1777648407041,"type":"item_add","itemId":"it_60","name":"Plunger","qty":1,"toLocationId":"tub_b_small_main"},{"id":"lg_81","ts":1777648527041,"type":"item_add","itemId":"it_61","name":"Shoptowel","qty":1,"toLocationId":"tub_b_small_main"},{"id":"lg_82","ts":1777648647041,"type":"item_add","itemId":"it_62","name":"Faucet freeze protector sock","qty":2,"toLocationId":"tub_b_small_main"},{"id":"lg_83","ts":1777648767041,"type":"item_add","itemId":"it_63","name":"Lazy susans oxo grip style","qty":2,"toLocationId":"tub_b_small_main"},{"id":"lg_84","ts":1777648887041,"type":"item_add","itemId":"it_64","name":"Dyson v11 attachments","qty":1,"toLocationId":"tub_b_small_main"},{"id":"lg_85","ts":1777649007041,"type":"item_add","itemId":"it_65","name":"Plumber under sink tightener wrench","qty":1,"toLocationId":"tub_b_small_main"},{"id":"lg_86","ts":1777649127041,"type":"location_create","locationId":"toolbox","name":"Toolbox","toParentId":"rm_garage"},{"id":"lg_87","ts":1777649247041,"type":"item_add","itemId":"it_66","name":"Silica gel desiccant","qty":1,"toLocationId":"toolbox"},{"id":"lg_88","ts":1777649367041,"type":"item_add","itemId":"it_67","name":"Wet n fix drywall hole repair","qty":1,"toLocationId":"toolbox"},{"id":"lg_89","ts":1777649487041,"type":"item_add","itemId":"it_68","name":"Ceiling paint","qty":1,"toLocationId":"rm_coat"},{"id":"lg_90","ts":1777649607041,"type":"item_add","itemId":"it_69","name":"Wall paint","qty":1,"toLocationId":"rm_coat"},{"id":"lg_91","ts":1777649727041,"type":"item_add","itemId":"it_70","name":"Trim paint","qty":1,"toLocationId":"rm_coat"},{"id":"lg_92","ts":1777649847041,"type":"item_add","itemId":"it_71","name":"Stair stain","qty":1,"toLocationId":"rm_coat"},{"id":"lg_93","ts":1777649967041,"type":"location_create","locationId":"battery_box","name":"Battery Box","toParentId":"rm_coat"},{"id":"lg_94","ts":1777650087041,"type":"item_add","itemId":"it_72","name":"AA Batteries","qty":1,"toLocationId":"battery_box"},{"id":"lg_95","ts":1777650207041,"type":"item_add","itemId":"it_73","name":"AAA Batteries","qty":1,"toLocationId":"battery_box"},{"id":"lg_96","ts":1777650327041,"type":"item_add","itemId":"it_74","name":"CR2032 Lithium Coin Cell Batteries","qty":1,"toLocationId":"battery_box"},{"id":"lg_97","ts":1777650447041,"type":"item_add","itemId":"it_75","name":"Trader joes blue cooler bag","qty":1,"toLocationId":"rm_understairs"},{"id":"lg_98","ts":1777650567041,"type":"item_add","itemId":"it_76","name":"Yeti orange zip cooler","qty":1,"toLocationId":"rm_understairs"}],"version":1};
+
+let S = null;              // live state
+let ui = { tab:'add', detailLocId:null, detailItemId:null, settingsView:null,
+           stickyLoc: null, mapMode:'tree', treeOpen:{}, prevTab:'add' };
+
+/* ---------- persistence (IndexedDB, with localStorage fallback) ----------
+   Storage layer is self-contained: works from any hosted URL or opened
+   directly. IndexedDB is the primary store (durable, eviction-resistant for
+   installed PWAs); localStorage is a mirror/fallback for resilience. */
+const KEY = 'homeinv:data:v1';
+const DB_NAME = 'homeinv', STORE = 'kv', DB_VER = 1;
+let _db = null;
+
+function openDB(){
+  return new Promise((resolve)=>{
+    if(_db) return resolve(_db);
+    if(!('indexedDB' in window)) return resolve(null);
+    let req;
+    try{ req = indexedDB.open(DB_NAME, DB_VER); }
+    catch(e){ return resolve(null); }
+    req.onupgradeneeded = ()=>{ const db=req.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
+    req.onsuccess = ()=>{ _db=req.result; resolve(_db); };
+    req.onerror  = ()=>{ resolve(null); };
+  });
+}
+function idbGet(key){
+  return new Promise((resolve)=>{ openDB().then(db=>{
+    if(!db) return resolve(null);
+    try{ const tx=db.transaction(STORE,'readonly').objectStore(STORE).get(key);
+      tx.onsuccess=()=>resolve(tx.result ?? null); tx.onerror=()=>resolve(null);
+    }catch(e){ resolve(null); }
+  }); });
+}
+function idbSet(key,val){
+  return new Promise((resolve)=>{ openDB().then(db=>{
+    if(!db) return resolve(false);
+    try{ const tx=db.transaction(STORE,'readwrite').objectStore(STORE).put(val,key);
+      tx.onsuccess=()=>resolve(true); tx.onerror=()=>resolve(false);
+    }catch(e){ resolve(false); }
+  }); });
+}
+
+async function load(){
+  let raw=null;
+  try{ raw = await idbGet(KEY); }catch(e){}
+  if(raw==null){ try{ raw = localStorage.getItem(KEY); }catch(e){} } // fallback / migrate
+  if(raw){ try{ S=JSON.parse(raw); migrate(); return; }catch(e){} }
+  // first run: seed
+  S = JSON.parse(JSON.stringify(SEED));
+  migrate();
+  await persist();
+}
+let saveTimer=null;
+async function persist(){
+  const raw = JSON.stringify(S);
+  let ok=false;
+  try{ ok = await idbSet(KEY, raw); }catch(e){}
+  try{ localStorage.setItem(KEY, raw); }catch(e){ /* quota / private mode */ }
+  if(!ok){ try{ localStorage.getItem(KEY); ok=true; }catch(e){} }
+  if(!ok){ toast('Heads up: storage unavailable — export a backup'); }
+}
+function queueSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist, 120); }
+function migrate(){
+  S.types     = S.types     || [];
+  S.tags      = S.tags      || [];
+  S.tagDict   = S.tagDict   || {};
+  S.locations = S.locations || [];
+  S.items     = S.items     || [];
+  S.log       = S.log       || [];
+  S.locations.forEach(l=>{ if(l.archived==null) l.archived=false; });
+  S.items.forEach(i=>{ if(i.archived==null) i.archived=false; if(i.qty==null) i.qty=1;
+                       if(!Array.isArray(i.tags)) i.tags=[]; });
+}
+
+/* ---------- id + time ---------- */
+const uid = (p)=> p+'_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+function logEvent(ev){ ev.id = uid('lg'); ev.ts = Date.now(); S.log.push(ev); }
+
+/* ---------- lookups ---------- */
+const locById  = (id)=> S.locations.find(l=>l.id===id) || null;
+const itemById = (id)=> S.items.find(i=>i.id===id) || null;
+const typeById = (id)=> S.types.find(t=>t.id===id) || null;
+const childLocs = (pid)=> S.locations.filter(l=>l.parentId===pid && !l.archived);
+const itemsIn   = (lid)=> S.items.filter(i=>i.locationId===lid && !i.archived);
+
+function locIcon(l){ const t=typeById(l.typeId); return t? t.icon : '📍'; }
+function locPath(id, sep=' › '){
+  const parts=[]; let cur=locById(id); let guard=0;
+  while(cur && guard++<40){ parts.unshift(cur.name); cur=cur.parentId?locById(cur.parentId):null; }
+  return parts.join(sep);
+}
+// descendants (locations) of a location, inclusive=false
+function descendantLocs(id){
+  const out=[]; const stack=[...childLocs(id)];
+  while(stack.length){ const l=stack.pop(); out.push(l); stack.push(...childLocs(l.id)); }
+  return out;
+}
+// every item physically inside this location or any descendant
+function itemsWithin(id){
+  const locIds=new Set([id, ...descendantLocs(id).map(l=>l.id)]);
+  return S.items.filter(i=>!i.archived && locIds.has(i.locationId));
+}
+// direct count summary for tree
+function locItemCount(id){ return itemsWithin(id).length; }
+
+/* ---------- tagging (offline keyword dictionary) ---------- */
+function autoTags(name){
+  const lc = ' '+name.toLowerCase().replace(/[^a-z0-9\s-]/g,' ')+' ';
+  const found=new Set();
+  for(const kw in S.tagDict){
+    const k=kw.toLowerCase();
+    if(lc.includes(' '+k+' ') || lc.includes(' '+k) && lc.indexOf(k)>-1){
+      // word-ish boundary check
+      const re=new RegExp('(^|[^a-z0-9])'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-z0-9]|$)');
+      if(re.test(lc)) found.add(S.tagDict[kw]);
+    }
+  }
+  return [...found];
+}
+// learn: associate the significant words of an item name with a manually-added tag
+function learnTag(name, tag){
+  const words = name.toLowerCase().replace(/[^a-z0-9\s-]/g,' ').split(/\s+/)
+                    .filter(w=>w.length>=3 && !STOP.has(w));
+  // attach the tag to the most distinctive word not already mapped
+  for(const w of words){ if(!S.tagDict[w]){ S.tagDict[w]=tag; break; } }
+  if(!S.tags.includes(tag)) S.tags.push(tag), S.tags.sort();
+}
+const STOP=new Set(['the','and','for','with','set','kit','box','bag','pack','new','old','home','inch','wall','under']);
+
+/* ---------- fuzzy search (offline) ---------- */
+function scoreMatch(item, q){
+  if(!q) return 0;
+  const terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  const name=item.name.toLowerCase();
+  const tagStr=item.tags.join(' ').toLowerCase();
+  const path=locPath(item.locationId).toLowerCase();
+  let score=0;
+  for(const t of terms){
+    let hit=0;
+    if(name.includes(t)) hit=Math.max(hit, name.startsWith(t)?3:2);
+    if(tagStr.includes(t)) hit=Math.max(hit,2);
+    if(path.includes(t)) hit=Math.max(hit,1);
+    if(!hit){ // subsequence fuzzy on name
+      if(isSubseq(t,name)) hit=0.5;
+    }
+    if(!hit) return -1; // every term must match somewhere
+    score+=hit;
+  }
+  return score;
+}
+function isSubseq(q,s){ let i=0; for(const c of s){ if(c===q[i]) i++; if(i===q.length) return true; } return q.length===0; }
+
+/* ---------- relative-time formatting ---------- */
+function relTime(ts){
+  const d=Date.now()-ts, m=60000,h=3600000,day=86400000;
+  if(d<m) return 'just now';
+  if(d<h) return Math.floor(d/m)+'m ago';
+  if(d<day) return Math.floor(d/h)+'h ago';
+  if(d<7*day) return Math.floor(d/day)+'d ago';
+  return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
+function fullTime(ts){ return new Date(ts).toLocaleString(undefined,
+  {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }
+
+/* ---------- toast ---------- */
+let toastT=null;
+function toast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2100);
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>(
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+
+<script>
+/* =========================================================================
+   NAVIGATION
+   ========================================================================= */
+const SCREENS=['add','search','map','log','settings','detail'];
+function show(tab, opts={}){
+  if(['add','search','map','log'].includes(tab)) ui.prevTab=tab;
+  ui.tab=tab;
+  SCREENS.forEach(s=>document.getElementById('screen-'+s).classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  const back=document.getElementById('backBtn');
+  back.style.display = (tab==='detail'||tab==='settings') ? 'flex':'none';
+  document.getElementById('settingsBtn').style.display=(tab==='detail'||tab==='settings')?'none':'flex';
+  try{ window.scrollTo(0,0); }catch(e){}
+  render();
+}
+function goBack(){
+  if(ui.tab==='detail'){
+    // if viewing a location detail that was reached from another detail, could chain; simple: go to prevTab or map
+    show(ui.detailFrom||'map');
+  } else if(ui.tab==='settings'){
+    if(ui.settingsView){ ui.settingsView=null; renderSettings(); }
+    else show(ui.prevTab||'add');
+  }
+}
+function render(){
+  if(ui.tab==='add') renderAdd();
+  else if(ui.tab==='search') renderSearch();
+  else if(ui.tab==='map') renderMap();
+  else if(ui.tab==='log') renderLog();
+  else if(ui.tab==='settings') renderSettings();
+  else if(ui.tab==='detail') renderDetail();
+  setTitle();
+}
+function setTitle(){
+  const map={add:'Add item',search:'Search',map:'Storage map',log:'History',settings:'Settings'};
+  let t=map[ui.tab]||'Inventory';
+  if(ui.tab==='detail'){
+    if(ui.detailItemId){ const it=itemById(ui.detailItemId); t=it?it.name:'Item'; }
+    else if(ui.detailLocId){ const l=locById(ui.detailLocId); t=l?l.name:'Location'; }
+  }
+  document.getElementById('title').textContent=t;
+}
+
+/* =========================================================================
+   ADD SCREEN
+   ========================================================================= */
+let addState={ name:'', locId:null, tags:[], qty:1 };
+function renderAdd(){
+  if(addState.locId==null) addState.locId = ui.stickyLoc || (S.locations[0]&&S.locations[0].id);
+  const loc=locById(addState.locId);
+  const el=document.getElementById('screen-add');
+  el.innerHTML=`
+    <div class="field">
+      <label class="fld">Item name</label>
+      <input class="input" id="addName" placeholder="e.g. AA Batteries" autocomplete="off"
+             value="${esc(addState.name)}" />
+    </div>
+
+    <div class="field">
+      <label class="fld">Quantity</label>
+      <div class="stepper" style="margin:6px 0;">
+        <button class="stepbtn" id="qMinus">−</button>
+        <div class="stepval" id="qVal">${addState.qty}</div>
+        <button class="stepbtn" id="qPlus">＋</button>
+      </div>
+    </div>
+
+    <div class="field picker-wrap">
+      <label class="fld">Storage location</label>
+      <input class="input" id="locInput" placeholder="Search locations…" autocomplete="off"
+             value="${loc?esc(locPath(loc.id)):''}" />
+      <div id="locSuggest"></div>
+      <div class="chiprow" id="locRecents"></div>
+    </div>
+
+    <div class="field">
+      <label class="fld">Tags <span style="text-transform:none;font-weight:500;color:var(--text-3)">· auto-applied, tap × to remove</span></label>
+      <div class="tags" id="addTags"></div>
+      <input class="input" id="tagAdd" placeholder="+ add a tag" autocomplete="off" style="margin-top:9px;height:42px;" />
+    </div>
+
+    <button class="btn" id="saveItem" style="margin-top:6px;">Add to ${loc?esc(loc.name):'…'}</button>
+    <p class="mini-note">Location stays selected so you can keep adding to the same spot.</p>
+  `;
+  renderAddTags();
+  renderLocRecents();
+  wireAdd();
+}
+function renderAddTags(){
+  const box=document.getElementById('addTags'); if(!box) return;
+  if(!addState.tags.length){ box.innerHTML='<span class="mini-note" style="margin:0">No tags yet — they appear as you type the name.</span>'; return; }
+  box.innerHTML=addState.tags.map(t=>`<span class="tag sel" data-t="${esc(t)}">${esc(t)} <span class="x">×</span></span>`).join('');
+  box.querySelectorAll('.tag').forEach(tg=>tg.onclick=()=>{
+    addState.tags=addState.tags.filter(x=>x!==tg.dataset.t); renderAddTags();
+  });
+}
+function renderLocRecents(){
+  const box=document.getElementById('locRecents'); if(!box) return;
+  const recents=recentLocIds(5);
+  box.innerHTML=recents.map(id=>{ const l=locById(id); if(!l) return '';
+    return `<button class="chip" data-id="${id}"><span class="ico">${locIcon(l)}</span>${esc(l.name)}</button>`;
+  }).join('');
+  box.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ selectAddLoc(c.dataset.id); });
+}
+function selectAddLoc(id){
+  addState.locId=id; ui.stickyLoc=id;
+  const inp=document.getElementById('locInput'); if(inp) inp.value=locPath(id);
+  document.getElementById('locSuggest').innerHTML='';
+  const btn=document.getElementById('saveItem'); const l=locById(id);
+  if(btn&&l) btn.textContent='Add to '+l.name;
+}
+function recentLocIds(n){
+  const seen=[]; for(let i=S.log.length-1;i>=0 && seen.length<n*3;i--){
+    const e=S.log[i]; const lid=e.toLocationId||e.locationId;
+    if(lid && locById(lid) && !locById(lid).archived && !seen.includes(lid)) seen.push(lid);
+  }
+  if(!seen.length) return S.locations.filter(l=>!l.archived).slice(0,n).map(l=>l.id);
+  return seen.slice(0,n);
+}
+function wireAdd(){
+  const nameI=document.getElementById('addName');
+  nameI.oninput=()=>{ addState.name=nameI.value;
+    const auto=autoTags(nameI.value);
+    // merge auto tags (keep any manual ones already present)
+    auto.forEach(t=>{ if(!addState.tags.includes(t)) addState.tags.push(t); });
+    renderAddTags();
+  };
+  document.getElementById('qMinus').onclick=()=>{ addState.qty=Math.max(1,addState.qty-1); document.getElementById('qVal').textContent=addState.qty; };
+  document.getElementById('qPlus').onclick =()=>{ addState.qty++; document.getElementById('qVal').textContent=addState.qty; };
+
+  const locI=document.getElementById('locInput');
+  locI.oninput=()=>showLocSuggest(locI.value, 'locSuggest', selectAddLoc);
+  locI.onfocus=()=>showLocSuggest(locI.value,'locSuggest',selectAddLoc);
+
+  const tagI=document.getElementById('tagAdd');
+  tagI.onkeydown=(e)=>{ if(e.key==='Enter' && tagI.value.trim()){ const t=tagI.value.trim().toLowerCase();
+    if(!addState.tags.includes(t)) addState.tags.push(t); tagI.value=''; renderAddTags(); } };
+
+  document.getElementById('saveItem').onclick=saveNewItem;
+}
+function showLocSuggest(q, targetId, onPick){
+  const box=document.getElementById(targetId); if(!box) return;
+  const ql=q.toLowerCase().trim();
+  let locs=S.locations.filter(l=>!l.archived);
+  if(ql){ locs=locs.filter(l=> l.name.toLowerCase().includes(ql) || locPath(l.id).toLowerCase().includes(ql)); }
+  locs=locs.slice(0,40);
+  if(!locs.length){ box.innerHTML='<div class="suggest"><div class="opt" style="color:var(--text-3)">No match</div></div>'; return; }
+  box.innerHTML='<div class="suggest">'+locs.map(l=>{
+    const parent=l.parentId?locPath(l.parentId):'';
+    return `<div class="opt" data-id="${l.id}"><span>${locIcon(l)}</span><span>${esc(l.name)}</span><span class="path">${esc(parent)}</span></div>`;
+  }).join('')+'</div>';
+  box.querySelectorAll('.opt[data-id]').forEach(o=>o.onclick=()=>{ onPick(o.dataset.id); box.innerHTML=''; });
+}
+function saveNewItem(){
+  const name=addState.name.trim();
+  if(!name){ toast('Give the item a name'); document.getElementById('addName').focus(); return; }
+  if(!addState.locId){ toast('Pick a location'); return; }
+  const it={ id:uid('it'), name, qty:addState.qty, tags:[...new Set(addState.tags)],
+             locationId:addState.locId, archived:false };
+  S.items.push(it);
+  logEvent({ type:'item_add', itemId:it.id, name:it.name, qty:it.qty, toLocationId:it.locationId });
+  // ensure tags exist in master list
+  it.tags.forEach(t=>{ if(!S.tags.includes(t)){ S.tags.push(t); } });
+  S.tags.sort();
+  ui.stickyLoc=addState.locId;
+  queueSave();
+  toast('Added “'+name+'”');
+  // reset for next add, keep location sticky
+  addState={ name:'', locId:addState.locId, tags:[], qty:1 };
+  renderAdd();
+}
+</script>
+
+<script>
+/* =========================================================================
+   SEARCH SCREEN
+   ========================================================================= */
+let searchState={ q:'', tag:null };
+function renderSearch(){
+  const el=document.getElementById('screen-search');
+  el.innerHTML=`
+    <div class="searchbar">
+      <span class="si">🔍</span>
+      <input id="searchInput" placeholder="Search items, tags, locations…" autocomplete="off" value="${esc(searchState.q)}" />
+      ${searchState.q?'<button class="si" id="clearSearch" aria-label="Clear">✕</button>':''}
+    </div>
+    <div class="filterscroll" id="tagFilters"></div>
+    <div id="searchResults"></div>
+  `;
+  // tag filters
+  const tf=document.getElementById('tagFilters');
+  const usedTags=[...new Set(S.items.filter(i=>!i.archived).flatMap(i=>i.tags))].sort();
+  tf.innerHTML=usedTags.map(t=>`<button class="tag ${searchState.tag===t?'sel':''}" data-t="${esc(t)}">${esc(t)}</button>`).join('');
+  tf.querySelectorAll('.tag').forEach(b=>b.onclick=()=>{ searchState.tag=searchState.tag===b.dataset.t?null:b.dataset.t; renderSearch(); });
+
+  const si=document.getElementById('searchInput');
+  si.oninput=()=>{ searchState.q=si.value; renderResults(); };
+  const cs=document.getElementById('clearSearch'); if(cs) cs.onclick=()=>{ searchState.q=''; renderSearch(); };
+  renderResults();
+  // keep focus convenience
+}
+function renderResults(){
+  const box=document.getElementById('searchResults'); if(!box) return;
+  let items=S.items.filter(i=>!i.archived);
+  if(searchState.tag) items=items.filter(i=>i.tags.includes(searchState.tag));
+  const q=searchState.q.trim();
+  if(q){
+    items=items.map(i=>({i,s:scoreMatch(i,q)})).filter(x=>x.s>=0)
+               .sort((a,b)=>b.s-a.s).map(x=>x.i);
+  } else {
+    items=items.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  }
+  if(!items.length){
+    box.innerHTML=`<div class="empty"><div class="big">🔍</div>${q||searchState.tag?'No items match.':'Start typing to search your inventory.'}</div>`;
+    return;
+  }
+  const header= q||searchState.tag ? `<div class="section-label">${items.length} result${items.length>1?'s':''}</div>`:`<div class="section-label">All items · ${items.length}</div>`;
+  box.innerHTML=header+items.map(i=>itemRow(i)).join('');
+  box.querySelectorAll('.row[data-item]').forEach(r=>r.onclick=()=>openItem(r.dataset.item));
+}
+function itemRow(i){
+  const loc=locById(i.locationId);
+  const qty = i.qty>1 ? `<span class="qtychip">${i.qty}</span>`:'';
+  const tagbit = i.tags.length? ' · '+i.tags.slice(0,3).join(', ') : '';
+  return `<div class="row" data-item="${i.id}">
+    <div class="main"><div class="name">${esc(i.name)}</div>
+      <div class="sub">${esc(loc?locPath(loc.id):'—')}${esc(tagbit)}</div></div>
+    ${qty}<span class="chev">›</span></div>`;
+}
+
+/* =========================================================================
+   MAP SCREEN  (tree default + graph toggle)
+   ========================================================================= */
+function renderMap(){
+  const el=document.getElementById('screen-map');
+  el.innerHTML=`
+    <div class="seg-toggle">
+      <button class="${ui.mapMode==='tree'?'on':''}" data-m="tree">Tree</button>
+      <button class="${ui.mapMode==='graph'?'on':''}" data-m="graph">Graph</button>
+    </div>
+    <div id="mapBody"></div>
+  `;
+  el.querySelectorAll('.seg-toggle button').forEach(b=>b.onclick=()=>{ ui.mapMode=b.dataset.m; renderMap(); });
+  if(ui.mapMode==='tree') renderTree(); else renderGraph();
+}
+function renderTree(){
+  const body=document.getElementById('mapBody');
+  const roots=S.locations.filter(l=>!l.parentId && !l.archived);
+  body.innerHTML='<div style="margin-top:4px">'+roots.map(r=>treeNode(r,0)).join('')+'</div>'
+    +'<p class="hint">Tap a location to view, move, or manage it.</p>';
+  wireTree(body);
+}
+function treeNode(l, depth){
+  const kids=childLocs(l.id);
+  const directItems=itemsIn(l.id);
+  const hasChildren = kids.length || directItems.length;
+  const open = ui.treeOpen[l.id] ?? (depth<1);
+  const total=locItemCount(l.id);
+  const badge = l.movable? '<span class="tw-badge">MOVABLE</span>':'';
+  let html=`<div class="tree-node">
+    <div class="tree-row" data-loc="${l.id}">
+      <span class="tw-toggle ${open?'open':''}" data-tog="${l.id}" style="${hasChildren?'':'visibility:hidden'}">▶</span>
+      <span class="tw-ico">${locIcon(l)}</span>
+      <span class="tw-name">${esc(l.name)}</span>
+      ${badge}
+      <span class="tw-count">${total}</span>
+    </div>`;
+  if(open && hasChildren){
+    html+=`<div class="tree-children">`;
+    html+=kids.map(k=>treeNode(k,depth+1)).join('');
+    html+=directItems.map(it=>{
+      const qty=it.qty>1?`<span class="qtychip">${it.qty}</span>`:'';
+      return `<div class="tree-row" data-itemrow="${it.id}">
+        <span class="tw-toggle" style="visibility:hidden">▶</span>
+        <span class="tw-ico" style="font-size:15px;opacity:.7">•</span>
+        <span class="tw-name" style="font-weight:400;color:var(--text-2)">${esc(it.name)}</span>${qty}</div>`;
+    }).join('');
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+function wireTree(body){
+  body.querySelectorAll('[data-tog]').forEach(t=>t.onclick=(e)=>{
+    e.stopPropagation(); const id=t.dataset.tog;
+    ui.treeOpen[id]=!(ui.treeOpen[id] ?? false);
+    renderTree();
+  });
+  body.querySelectorAll('.tree-row[data-loc]').forEach(r=>r.onclick=(e)=>{
+    if(e.target.dataset.tog) return;
+    openLocation(r.dataset.loc);
+  });
+  body.querySelectorAll('[data-itemrow]').forEach(r=>r.onclick=()=>openItem(r.dataset.itemrow));
+}
+
+/* ---------- graph view (radial-ish force-free layout) ---------- */
+function renderGraph(){
+  const body=document.getElementById('mapBody');
+  body.innerHTML=`<div class="graphwrap"><svg id="gsvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <p class="hint">Pinch / drag to explore · tap a node to open</p>`;
+  const svg=document.getElementById('gsvg');
+  // layout: simple tidy radial tree
+  const roots=S.locations.filter(l=>!l.parentId && !l.archived);
+  const nodes=[], links=[];
+  const W=1000,H=1000;
+  // assign positions via recursive angular partition
+  let leafCounter=0;
+  function countLeaves(l){ const k=childLocs(l.id); if(!k.length) return 1; return k.reduce((s,c)=>s+countLeaves(c),0); }
+  const totalLeaves=roots.reduce((s,r)=>s+countLeaves(r),0)||1;
+  let angleCursor=0;
+  function place(l, depth, a0, a1){
+    const mid=(a0+a1)/2;
+    const radius=depth*135 + (depth?60:0);
+    const cx=W/2+radius*Math.cos(mid-Math.PI/2);
+    const cy=H/2+radius*Math.sin(mid-Math.PI/2);
+    const node={id:l.id,x:depth?cx:W/2,y:depth?cy:H/2,depth,name:l.name,movable:l.movable,icon:locIcon(l),count:locItemCount(l.id)};
+    nodes.push(node);
+    const kids=childLocs(l.id);
+    let span=a1-a0, cum=a0;
+    kids.forEach(k=>{ const lv=countLeaves(k)/Math.max(1,countLeaves(l)); const ka1=cum+span*lv;
+      const child=place(k,depth+1,cum,ka1); links.push([node,child]); cum=ka1; });
+    return node;
+  }
+  let cum=0; roots.forEach(r=>{ const lv=countLeaves(r)/totalLeaves; place(r,0,cum*2*Math.PI,(cum+lv)*2*Math.PI); cum+=lv; });
+
+  let svgInner='';
+  links.forEach(([a,b])=>{ svgInner+=`<line x1="${a.x.toFixed(0)}" y1="${a.y.toFixed(0)}" x2="${b.x.toFixed(0)}" y2="${b.y.toFixed(0)}" stroke="#2a2f37" stroke-width="2"/>`; });
+  nodes.forEach(n=>{
+    const r = n.depth===0?34: n.movable?22:18;
+    const fill = n.movable? '#3a3320' : '#1d2128';
+    const stroke = n.movable? '#d4af37' : '#3a4250';
+    svgInner+=`<g class="gnode" data-id="${n.id}" style="cursor:pointer">
+      <circle cx="${n.x.toFixed(0)}" cy="${n.y.toFixed(0)}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2.5"/>
+      <text x="${n.x.toFixed(0)}" y="${(n.y+5).toFixed(0)}" text-anchor="middle" font-size="${n.depth===0?22:16}">${n.icon}</text>
+      <text class="gnode-label" x="${n.x.toFixed(0)}" y="${(n.y+r+15).toFixed(0)}" text-anchor="middle">${esc(n.name.length>16?n.name.slice(0,15)+'…':n.name)}</text>
+    </g>`;
+  });
+  svg.innerHTML=svgInner;
+  svg.querySelectorAll('.gnode').forEach(g=>g.onclick=()=>openLocation(g.dataset.id));
+  enablePanZoom(svg);
+}
+function enablePanZoom(svg){
+  let vb={x:0,y:0,w:1000,h:1000};
+  const set=()=>svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  let drag=null;
+  svg.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,vx:vb.x,vy:vb.y}; svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener('pointermove',e=>{ if(!drag) return;
+    const sc=vb.w/svg.clientWidth; vb.x=drag.vx-(e.clientX-drag.x)*sc; vb.y=drag.vy-(e.clientY-drag.y)*sc; set(); });
+  svg.addEventListener('pointerup',()=>drag=null);
+  svg.addEventListener('pointercancel',()=>drag=null);
+  let lastDist=null;
+  svg.addEventListener('touchmove',e=>{
+    if(e.touches.length===2){ e.preventDefault();
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      if(lastDist){ const f=lastDist/d; const nw=Math.min(2200,Math.max(280,vb.w*f)); const nh=nw;
+        vb.x+=(vb.w-nw)/2; vb.y+=(vb.h-nh)/2; vb.w=nw; vb.h=nh; set(); }
+      lastDist=d;
+    }
+  },{passive:false});
+  svg.addEventListener('touchend',()=>lastDist=null);
+}
+
+/* =========================================================================
+   LOG SCREEN  (global feed + filter)
+   ========================================================================= */
+let logFilter='';
+function renderLog(){
+  const el=document.getElementById('screen-log');
+  el.innerHTML=`
+    <div class="searchbar"><span class="si">≡</span>
+      <input id="logSearch" placeholder="Filter history…" autocomplete="off" value="${esc(logFilter)}"/>
+      ${logFilter?'<button class="si" id="logClear">✕</button>':''}
+    </div>
+    <div id="logBody"></div>`;
+  const ls=document.getElementById('logSearch');
+  ls.oninput=()=>{ logFilter=ls.value; renderLogBody(); };
+  const lc=document.getElementById('logClear'); if(lc) lc.onclick=()=>{logFilter='';renderLog();};
+  renderLogBody();
+}
+function logLine(e){
+  const it=e.itemId?itemById(e.itemId):null;
+  const itName=e.name|| (it?it.name:'item');
+  const toL=e.toLocationId?locById(e.toLocationId):null;
+  const frL=e.fromLocationId?locById(e.fromLocationId):null;
+  let cls='add',ico='＋',text='';
+  switch(e.type){
+    case 'item_add': cls='add';ico='＋'; text=`Added <b>${esc(itName)}</b>${e.qty>1?` ×${e.qty}`:''} to ${esc(toL?locPath(toL.id):'?')}`; break;
+    case 'item_move': cls='move';ico='→'; text=`Moved <b>${esc(itName)}</b> ${frL?'from '+esc(frL.name)+' ':''}to ${esc(toL?locPath(toL.id):'?')}`; break;
+    case 'item_remove': cls='del';ico='🗑'; text=`Removed <b>${esc(itName)}</b>`; break;
+    case 'item_restore': cls='add';ico='↩'; text=`Restored <b>${esc(itName)}</b> to ${esc(toL?locPath(toL.id):'?')}`; break;
+    case 'qty_change': { const d=e.delta; cls='qty';ico=d>0?'▲':'▼';
+      text=`<b>${esc(itName)}</b> ${e.from} → ${e.to} (${d>0?'+':''}${d})`; break; }
+    case 'location_create': cls='loc';ico='📁'; text=`Created location <b>${esc(e.name||(locById(e.locationId)||{}).name||'?')}</b>`; break;
+    case 'location_move': { const ml=locById(e.locationId); cls='move';ico='⇄';
+      text=`Moved <b>${esc(e.name||(ml?ml.name:'location'))}</b> to ${esc(toL?locPath(toL.id):'?')}`; break; }
+    case 'location_remove': cls='del';ico='🗑'; text=`Removed location <b>${esc(e.name||(locById(e.locationId)||{}).name||'?')}</b>`; break;
+    case 'location_restore': cls='loc';ico='↩'; text=`Restored location <b>${esc(e.name||(locById(e.locationId)||{}).name||'?')}</b>`; break;
+    default: text=esc(e.type);
+  }
+  return {cls,ico,text};
+}
+function renderLogBody(){
+  const box=document.getElementById('logBody'); if(!box) return;
+  let evs=S.log.slice().reverse();
+  const f=logFilter.toLowerCase().trim();
+  if(f){ evs=evs.filter(e=>{ const l=logLine(e); return l.text.toLowerCase().includes(f) ||
+        (e.name||'').toLowerCase().includes(f); }); }
+  if(!evs.length){ box.innerHTML=`<div class="empty"><div class="big">≡</div>${f?'No matching history.':'No history yet.'}</div>`; return; }
+  // group by day
+  let html=''; let lastDay='';
+  evs.forEach(e=>{
+    const day=new Date(e.ts).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    if(day!==lastDay){ html+=`<div class="section-label">${day}</div>`; lastDay=day; }
+    const l=logLine(e);
+    html+=`<div class="logitem"><div class="dot ${l.cls}">${l.ico}</div>
+      <div class="lmain"><div class="ltext">${l.text}</div><div class="ltime">${fullTime(e.ts)}</div></div></div>`;
+  });
+  box.innerHTML=html;
+}
+</script>
+
+<script>
+/* =========================================================================
+   DETAIL: ITEM
+   ========================================================================= */
+function openItem(id){ ui.detailItemId=id; ui.detailLocId=null; ui.detailFrom=ui.tab; show('detail'); }
+function openLocation(id){ ui.detailLocId=id; ui.detailItemId=null; ui.detailFrom=ui.tab; show('detail'); }
+
+function renderDetail(){
+  if(ui.detailItemId) renderItemDetail();
+  else if(ui.detailLocId) renderLocDetail();
+}
+function renderItemDetail(){
+  const it=itemById(ui.detailItemId);
+  const el=document.getElementById('screen-detail');
+  if(!it){ el.innerHTML='<div class="empty">Item not found.</div>'; return; }
+  const loc=locById(it.locationId);
+  const myLog=S.log.filter(e=>e.itemId===it.id).reverse();
+  el.innerHTML=`
+    <div class="card">
+      <div class="detail-meta">
+        ${it.qty>1?`<span class="qtychip">${it.qty}</span>`:''}
+        <span>${it.qty>1?it.qty+' in stock':'1 in stock'}</span>
+      </div>
+      <div class="detail-path">${pathChips(it.locationId)}</div>
+      <div class="tags" id="itemTags"></div>
+      <input class="input" id="itemTagAdd" placeholder="+ add a tag" autocomplete="off" style="margin-top:11px;height:42px;" />
+    </div>
+
+    <div class="actions">
+      <button class="btn secondary" id="btnQty">Adjust quantity</button>
+      <button class="btn secondary" id="btnMove">Move</button>
+    </div>
+    <button class="btn ghost" id="btnRename" style="margin-bottom:10px;">Rename</button>
+    <button class="btn ghost danger-text" id="btnRemove" style="color:var(--red);border-color:var(--red);">Remove item</button>
+
+    <div class="section-label">Item history</div>
+    <div id="itemHist"></div>
+  `;
+  renderItemTags(it);
+  document.getElementById('itemTagAdd').onkeydown=(e)=>{ if(e.key==='Enter'){ const v=e.target.value.trim().toLowerCase();
+    if(v && !it.tags.includes(v)){ it.tags.push(v); learnTag(it.name,v); queueSave(); e.target.value=''; renderItemTags(it); } } };
+  document.getElementById('btnQty').onclick=()=>openQtySheet(it.id);
+  document.getElementById('btnMove').onclick=()=>openMoveSheet({itemId:it.id});
+  document.getElementById('btnRename').onclick=()=>openRenameSheet({itemId:it.id});
+  document.getElementById('btnRemove').onclick=()=>openRemoveSheet({itemId:it.id});
+  const hist=document.getElementById('itemHist');
+  hist.innerHTML = myLog.length? myLog.map(e=>{ const l=logLine(e);
+    return `<div class="logitem"><div class="dot ${l.cls}">${l.ico}</div><div class="lmain"><div class="ltext">${l.text}</div><div class="ltime">${fullTime(e.ts)}</div></div></div>`;
+  }).join('') : '<p class="mini-note">No history yet.</p>';
+}
+function renderItemTags(it){
+  const box=document.getElementById('itemTags'); if(!box) return;
+  box.innerHTML = it.tags.length? it.tags.map(t=>`<span class="tag sel" data-t="${esc(t)}">${esc(t)} <span class="x">×</span></span>`).join('')
+                : '<span class="mini-note" style="margin:0">No tags</span>';
+  box.querySelectorAll('.tag').forEach(tg=>tg.onclick=()=>{ it.tags=it.tags.filter(x=>x!==tg.dataset.t); queueSave(); renderItemTags(it); });
+}
+function pathChips(locId){
+  const parts=[]; let cur=locById(locId); let guard=0;
+  while(cur && guard++<40){ parts.unshift(cur); cur=cur.parentId?locById(cur.parentId):null; }
+  return parts.map((p,i)=>`${i?'<span class="sep">›</span>':''}<span class="seg" data-loc="${p.id}">${locIcon(p)} ${esc(p.name)}</span>`).join(' ');
+}
+
+/* =========================================================================
+   DETAIL: LOCATION
+   ========================================================================= */
+function renderLocDetail(){
+  const l=locById(ui.detailLocId);
+  const el=document.getElementById('screen-detail');
+  if(!l){ el.innerHTML='<div class="empty">Location not found.</div>'; return; }
+  const kids=childLocs(l.id);
+  const directItems=itemsIn(l.id);
+  const within=itemsWithin(l.id).length;
+  const myLog=S.log.filter(e=> e.locationId===l.id || (e.toLocationId===l.id) || (e.fromLocationId===l.id) ||
+                 (e.itemId && itemById(e.itemId) && itemById(e.itemId).locationId===l.id)).reverse().slice(0,60);
+  const t=typeById(l.typeId);
+  el.innerHTML=`
+    <div class="card">
+      <div class="detail-meta">
+        <span style="font-size:22px">${locIcon(l)}</span>
+        <span>${t?esc(t.name):'Location'}</span>
+        ${l.movable?'<span class="tw-badge">MOVABLE</span>':'<span class="tag" style="font-size:10.5px">Fixed</span>'}
+      </div>
+      <div class="detail-path">${l.parentId?pathChips(l.parentId):'<span class="seg">Top level</span>'}</div>
+      <div class="mini-note" style="margin:0">${within} item${within!==1?'s':''} inside (incl. sub-locations)</div>
+    </div>
+
+    <div class="actions">
+      <button class="btn secondary" id="btnAddHere">Add item here</button>
+      ${l.movable?'<button class="btn secondary" id="btnMoveLoc">Move location</button>':'<button class="btn secondary" id="btnAddSub">Add sub-location</button>'}
+    </div>
+    ${l.movable?'<button class="btn ghost" id="btnAddSub2" style="margin-bottom:10px;">Add sub-location</button>':''}
+    <button class="btn ghost" id="btnRenameLoc" style="margin-bottom:10px;">Rename / change type</button>
+    ${l.parentId!==undefined?`<button class="btn ghost" id="btnRemoveLoc" style="color:var(--red);border-color:var(--red);">Remove location</button>`:''}
+
+    ${kids.length?`<div class="section-label">Sub-locations</div>${kids.map(k=>{
+        const cnt=locItemCount(k.id);
+        return `<div class="row" data-loc="${k.id}"><span class="ico">${locIcon(k)}</span>
+          <div class="main"><div class="name">${esc(k.name)}</div><div class="sub">${cnt} item${cnt!==1?'s':''}${k.movable?' · movable':''}</div></div>
+          <span class="chev">›</span></div>`;}).join('')}`:''}
+
+    ${directItems.length?`<div class="section-label">Items here</div>${directItems.map(itemRow).join('')}`:''}
+    ${(!kids.length&&!directItems.length)?'<div class="empty" style="padding:30px"><div class="big">📭</div>Empty location</div>':''}
+
+    <div class="section-label">Location history</div>
+    <div id="locHist"></div>
+  `;
+  el.querySelector('#btnAddHere').onclick=()=>{ addState={name:'',locId:l.id,tags:[],qty:1}; ui.stickyLoc=l.id; show('add'); };
+  const mv=el.querySelector('#btnMoveLoc'); if(mv) mv.onclick=()=>openMoveSheet({locId:l.id});
+  const as=el.querySelector('#btnAddSub')||el.querySelector('#btnAddSub2'); if(as) as.onclick=()=>openNewLocSheet(l.id);
+  el.querySelector('#btnRenameLoc').onclick=()=>openRenameSheet({locId:l.id});
+  const rl=el.querySelector('#btnRemoveLoc'); if(rl) rl.onclick=()=>openRemoveSheet({locId:l.id});
+  el.querySelectorAll('.row[data-loc]').forEach(r=>r.onclick=()=>openLocation(r.dataset.loc));
+  el.querySelectorAll('.row[data-item]').forEach(r=>r.onclick=()=>openItem(r.dataset.item));
+  el.querySelectorAll('.seg[data-loc]').forEach(s=>s.onclick=()=>openLocation(s.dataset.loc));
+  const lh=document.getElementById('locHist');
+  lh.innerHTML=myLog.length?myLog.map(e=>{const ln=logLine(e);
+    return `<div class="logitem"><div class="dot ${ln.cls}">${ln.ico}</div><div class="lmain"><div class="ltext">${ln.text}</div><div class="ltime">${fullTime(e.ts)}</div></div></div>`;
+  }).join(''):'<p class="mini-note">No history yet.</p>';
+  // make path chips on item detail also clickable (delegate)
+  document.getElementById('screen-detail').querySelectorAll('.seg[data-loc]').forEach(s=>s.onclick=()=>openLocation(s.dataset.loc));
+}
+
+/* =========================================================================
+   SHEETS
+   ========================================================================= */
+function openSheet(html){ const s=document.getElementById('sheet'); s.innerHTML='<div class="grab"></div>'+html;
+  document.getElementById('scrim').classList.add('show'); }
+function closeSheet(){ document.getElementById('scrim').classList.remove('show'); }
+document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeSheet(); });
+
+/* ---------- quantity ---------- */
+function openQtySheet(itemId){
+  const it=itemById(itemId); if(!it) return;
+  let working=it.qty;
+  openSheet(`
+    <h2>Adjust quantity</h2>
+    <p class="subtitle">${esc(it.name)}</p>
+    <div class="stepper"><button class="stepbtn" id="qm">−</button>
+      <div class="stepval" id="qv">${working}</div>
+      <button class="stepbtn" id="qp">＋</button></div>
+    <div class="preview" id="qprev">No change</div>
+    <button class="btn" id="qConfirm">Confirm</button>
+    <button class="btn ghost" id="qCancel" style="margin-top:10px;">Cancel</button>
+  `);
+  const upd=()=>{ document.getElementById('qv').textContent=working;
+    const d=working-it.qty;
+    document.getElementById('qprev').innerHTML = d===0?'No change':
+      `<b>${it.qty}</b><span class="arrow">→</span><b>${working}</b> &nbsp;(${d>0?'+':''}${d})`;
+    document.getElementById('qConfirm').disabled = d===0;
+  };
+  document.getElementById('qm').onclick=()=>{ working=Math.max(0,working-1); upd(); };
+  document.getElementById('qp').onclick=()=>{ working++; upd(); };
+  document.getElementById('qCancel').onclick=closeSheet;
+  document.getElementById('qConfirm').onclick=()=>{
+    const d=working-it.qty; if(d===0) return closeSheet();
+    const from=it.qty; it.qty=working;
+    logEvent({type:'qty_change',itemId:it.id,name:it.name,from,to:working,delta:d});
+    if(working===0){ toast('Quantity is 0 — item kept. Remove it from the item screen if gone.'); }
+    queueSave(); closeSheet(); render();
+  };
+  upd();
+}
+
+/* ---------- move ---------- */
+function openMoveSheet({itemId,locId}){
+  const subject = itemId? itemById(itemId) : locById(locId);
+  if(!subject) return;
+  const isItem=!!itemId;
+  // build excluded set for locations (can't move into self/descendants)
+  let excluded=new Set();
+  if(!isItem){ excluded=new Set([locId, ...descendantLocs(locId).map(l=>l.id)]); }
+  openSheet(`
+    <h2>Move ${isItem?'item':'location'}</h2>
+    <p class="subtitle">${esc(subject.name)} — pick a new home</p>
+    <div class="picker-wrap">
+      <input class="input" id="moveInput" placeholder="Search destination…" autocomplete="off"/>
+      <div id="moveSuggest"></div>
+    </div>
+    <div class="chiprow" id="moveRecents" style="margin-top:12px"></div>
+  `);
+  const recents=document.getElementById('moveRecents');
+  recents.innerHTML=recentLocIds(6).filter(id=>!excluded.has(id)).map(id=>{const l=locById(id);
+    return l?`<button class="chip" data-id="${id}"><span class="ico">${locIcon(l)}</span>${esc(l.name)}</button>`:''; }).join('');
+  recents.querySelectorAll('.chip').forEach(c=>c.onclick=()=>doMove(c.dataset.id));
+  const mi=document.getElementById('moveInput');
+  const pick=(id)=>{ if(excluded.has(id)){ toast("Can't move into itself"); return; } doMove(id); };
+  mi.oninput=()=>showLocSuggestFiltered(mi.value,'moveSuggest',pick,excluded);
+  mi.onfocus=()=>showLocSuggestFiltered(mi.value,'moveSuggest',pick,excluded);
+  setTimeout(()=>mi.focus(),250);
+
+  function doMove(destId){
+    if(isItem){
+      const it=subject; const from=it.locationId; if(from===destId){ closeSheet(); toast('Already there'); return; }
+      it.locationId=destId;
+      logEvent({type:'item_move',itemId:it.id,name:it.name,fromLocationId:from,toLocationId:destId});
+    } else {
+      const l=subject; const from=l.parentId; if(from===destId){ closeSheet(); toast('Already there'); return; }
+      l.parentId=destId;
+      logEvent({type:'location_move',locationId:l.id,name:l.name,fromLocationId:from,toLocationId:destId});
+      // cascade: log a move entry for every item physically within (audit requirement)
+      itemsWithin(l.id).forEach(it=>{
+        logEvent({type:'item_move',itemId:it.id,name:it.name,fromLocationId:it.locationId,toLocationId:it.locationId,
+                  viaLocation:l.id, cascade:true});
+      });
+    }
+    ui.stickyLoc=destId; queueSave(); closeSheet(); render();
+    toast('Moved to '+locById(destId).name);
+  }
+}
+function showLocSuggestFiltered(q,target,onPick,excluded){
+  const box=document.getElementById(target); if(!box) return;
+  const ql=q.toLowerCase().trim();
+  let locs=S.locations.filter(l=>!l.archived && !excluded.has(l.id));
+  if(ql) locs=locs.filter(l=>l.name.toLowerCase().includes(ql)||locPath(l.id).toLowerCase().includes(ql));
+  locs=locs.slice(0,40);
+  box.innerHTML='<div class="suggest">'+(locs.length?locs.map(l=>{
+    const parent=l.parentId?locPath(l.parentId):'Top level';
+    return `<div class="opt" data-id="${l.id}"><span>${locIcon(l)}</span><span>${esc(l.name)}</span><span class="path">${esc(parent)}</span></div>`;
+  }).join(''):'<div class="opt" style="color:var(--text-3)">No match</div>')+'</div>';
+  box.querySelectorAll('.opt[data-id]').forEach(o=>o.onclick=()=>onPick(o.dataset.id));
+}
+
+/* ---------- rename / type ---------- */
+function openRenameSheet({itemId,locId}){
+  if(itemId){ const it=itemById(itemId);
+    openSheet(`<h2>Rename item</h2>
+      <div class="field" style="margin-top:8px"><input class="input" id="rnInput" value="${esc(it.name)}"/></div>
+      <button class="btn" id="rnSave">Save</button><button class="btn ghost" id="rnCancel" style="margin-top:10px">Cancel</button>`);
+    document.getElementById('rnCancel').onclick=closeSheet;
+    document.getElementById('rnSave').onclick=()=>{ const v=document.getElementById('rnInput').value.trim();
+      if(v){ it.name=v; queueSave(); } closeSheet(); render(); };
+  } else { const l=locById(locId);
+    openSheet(`<h2>Edit location</h2>
+      <div class="field" style="margin-top:8px"><label class="fld">Name</label><input class="input" id="rnInput" value="${esc(l.name)}"/></div>
+      <div class="field"><label class="fld">Type</label>
+        <select class="input" id="rnType">${S.types.map(t=>`<option value="${t.id}" ${t.id===l.typeId?'selected':''}>${t.icon} ${esc(t.name)}</option>`).join('')}</select></div>
+      <div class="field"><label class="fld">Behavior</label>
+        <div class="seg-toggle" style="margin:0"><button id="bFixed" class="${!l.movable?'on':''}">Fixed</button><button id="bMov" class="${l.movable?'on':''}">Movable</button></div></div>
+      <button class="btn" id="rnSave">Save</button><button class="btn ghost" id="rnCancel" style="margin-top:10px">Cancel</button>`);
+    let mov=l.movable;
+    document.getElementById('bFixed').onclick=()=>{mov=false;document.getElementById('bFixed').classList.add('on');document.getElementById('bMov').classList.remove('on');};
+    document.getElementById('bMov').onclick=()=>{mov=true;document.getElementById('bMov').classList.add('on');document.getElementById('bFixed').classList.remove('on');};
+    document.getElementById('rnCancel').onclick=closeSheet;
+    document.getElementById('rnSave').onclick=()=>{ const v=document.getElementById('rnInput').value.trim();
+      if(v) l.name=v; l.typeId=document.getElementById('rnType').value; l.movable=mov; queueSave(); closeSheet(); render(); };
+  }
+}
+
+/* ---------- new location ---------- */
+function openNewLocSheet(parentId){
+  openSheet(`<h2>New sub-location</h2><p class="subtitle">Inside ${esc(locById(parentId).name)}</p>
+    <div class="field"><label class="fld">Name</label><input class="input" id="nlName" placeholder="e.g. Top shelf" autocomplete="off"/></div>
+    <div class="field"><label class="fld">Type</label>
+      <select class="input" id="nlType">${S.types.map(t=>`<option value="${t.id}">${t.icon} ${esc(t.name)}</option>`).join('')}</select></div>
+    <div class="field"><label class="fld">Behavior</label>
+      <div class="seg-toggle" style="margin:0"><button id="nlFixed" class="on">Fixed</button><button id="nlMov">Movable</button></div>
+      <p class="mini-note">Movable = a tub, box, or bag you might relocate. Fixed = a shelf or zone that stays put.</p></div>
+    <button class="btn" id="nlSave">Create</button><button class="btn ghost" id="nlCancel" style="margin-top:10px">Cancel</button>`);
+  let mov=false;
+  document.getElementById('nlFixed').onclick=()=>{mov=false;document.getElementById('nlFixed').classList.add('on');document.getElementById('nlMov').classList.remove('on');};
+  document.getElementById('nlMov').onclick=()=>{mov=true;document.getElementById('nlMov').classList.add('on');document.getElementById('nlFixed').classList.remove('on');};
+  document.getElementById('nlCancel').onclick=closeSheet;
+  document.getElementById('nlSave').onclick=()=>{ const v=document.getElementById('nlName').value.trim();
+    if(!v){ toast('Name it first'); return; }
+    const id=uid('loc'); S.locations.push({id,name:v,typeId:document.getElementById('nlType').value,movable:mov,parentId,archived:false});
+    logEvent({type:'location_create',locationId:id,name:v,toParentId:parentId});
+    ui.treeOpen[parentId]=true; queueSave(); closeSheet(); render(); toast('Created “'+v+'”');
+  };
+}
+/* ---------- new top-level location ---------- */
+function openNewRoomSheet(){
+  openSheet(`<h2>New room / top location</h2>
+    <div class="field" style="margin-top:8px"><label class="fld">Name</label><input class="input" id="nrName" placeholder="e.g. Attic" autocomplete="off"/></div>
+    <div class="field"><label class="fld">Type</label>
+      <select class="input" id="nrType">${S.types.map(t=>`<option value="${t.id}" ${t.id==='ty_room'?'selected':''}>${t.icon} ${esc(t.name)}</option>`).join('')}</select></div>
+    <button class="btn" id="nrSave">Create</button><button class="btn ghost" id="nrCancel" style="margin-top:10px">Cancel</button>`);
+  document.getElementById('nrCancel').onclick=closeSheet;
+  document.getElementById('nrSave').onclick=()=>{ const v=document.getElementById('nrName').value.trim();
+    if(!v){toast('Name it first');return;}
+    const id=uid('loc'); S.locations.push({id,name:v,typeId:document.getElementById('nrType').value,movable:false,parentId:null,archived:false});
+    logEvent({type:'location_create',locationId:id,name:v,toParentId:null});
+    queueSave(); closeSheet(); render(); toast('Created “'+v+'”');
+  };
+}
+
+/* ---------- remove (soft delete) ---------- */
+function openRemoveSheet({itemId,locId}){
+  if(itemId){ const it=itemById(itemId);
+    openSheet(`<h2>Remove item?</h2><p class="subtitle">${esc(it.name)} will move to the archive. You can restore it later.</p>
+      <button class="btn danger" id="rmYes">Remove “${esc(it.name)}”</button>
+      <button class="btn ghost" id="rmNo" style="margin-top:10px">Cancel</button>`);
+    document.getElementById('rmNo').onclick=closeSheet;
+    document.getElementById('rmYes').onclick=()=>{ it.archived=true; it._lastLoc=it.locationId;
+      logEvent({type:'item_remove',itemId:it.id,name:it.name,fromLocationId:it.locationId}); queueSave();
+      closeSheet(); toast('Archived'); show(ui.detailFrom||'search'); };
+  } else { const l=locById(locId);
+    const within=itemsWithin(l.id); const subs=descendantLocs(l.id);
+    const hasContents=within.length||subs.length;
+    openSheet(`<h2>Remove location?</h2><p class="subtitle">${esc(l.name)}${hasContents?` contains ${within.length} item${within.length!==1?'s':''}`+(subs.length?` and ${subs.length} sub-location${subs.length!==1?'s':''}`:'')+'.':''}</p>
+      ${hasContents?`<div class="field"><label class="fld">What about the contents?</label>
+        <div class="seg-toggle" style="margin:0"><button id="spillUp" class="on">Move up to parent</button><button id="archAll">Archive everything</button></div>
+        <p class="mini-note" id="spillNote">Contents move to ${l.parentId?esc(locById(l.parentId).name):'top level'}.</p></div>`:''}
+      <button class="btn danger" id="rmYes">Remove “${esc(l.name)}”</button>
+      <button class="btn ghost" id="rmNo" style="margin-top:10px">Cancel</button>`);
+    let mode='spill';
+    if(hasContents){ document.getElementById('spillUp').onclick=()=>{mode='spill';document.getElementById('spillUp').classList.add('on');document.getElementById('archAll').classList.remove('on');document.getElementById('spillNote').textContent='Contents move to '+(l.parentId?locById(l.parentId).name:'top level')+'.';};
+      document.getElementById('archAll').onclick=()=>{mode='archive';document.getElementById('archAll').classList.add('on');document.getElementById('spillUp').classList.remove('on');document.getElementById('spillNote').textContent='All items and sub-locations are archived too.';}; }
+    document.getElementById('rmNo').onclick=closeSheet;
+    document.getElementById('rmYes').onclick=()=>{
+      if(hasContents && mode==='spill'){
+        const dest=l.parentId;
+        itemsIn(l.id).forEach(it=>{ const from=it.locationId; it.locationId=dest||it.locationId;
+          if(dest) logEvent({type:'item_move',itemId:it.id,name:it.name,fromLocationId:from,toLocationId:dest}); });
+        childLocs(l.id).forEach(c=>{ const from=c.parentId; c.parentId=dest;
+          logEvent({type:'location_move',locationId:c.id,name:c.name,fromLocationId:from,toLocationId:dest}); });
+      } else if(hasContents && mode==='archive'){
+        itemsWithin(l.id).forEach(it=>{ it.archived=true; logEvent({type:'item_remove',itemId:it.id,name:it.name,fromLocationId:it.locationId}); });
+        descendantLocs(l.id).forEach(c=>{ c.archived=true; logEvent({type:'location_remove',locationId:c.id,name:c.name}); });
+      }
+      l.archived=true; logEvent({type:'location_remove',locationId:l.id,name:l.name});
+      queueSave(); closeSheet(); toast('Location archived'); show('map');
+    };
+  }
+}
+
+/* =========================================================================
+   SETTINGS
+   ========================================================================= */
+function renderSettings(){
+  const el=document.getElementById('screen-settings');
+  if(ui.settingsView==='types') return renderTypesView(el);
+  if(ui.settingsView==='tags') return renderTagsView(el);
+  if(ui.settingsView==='archive') return renderArchiveView(el);
+  el.innerHTML=`
+    <div class="linkrow" data-go="types"><span class="ico">🏷</span><div class="lt"><div class="t">Location types</div><div class="d">${S.types.length} types · icons</div></div><span class="chev">›</span></div>
+    <div class="linkrow" data-go="tags"><span class="ico">#</span><div class="lt"><div class="t">Tags</div><div class="d">${S.tags.length} tags</div></div><span class="chev">›</span></div>
+    <div class="linkrow" data-go="archive"><span class="ico">🗄</span><div class="lt"><div class="t">Archive</div><div class="d">${S.items.filter(i=>i.archived).length} items · ${S.locations.filter(l=>l.archived).length} locations</div></div><span class="chev">›</span></div>
+    <div class="divider"></div>
+    <div class="linkrow" id="addRoom"><span class="ico">＋</span><div class="lt"><div class="t">New room / top location</div></div></div>
+    <div class="divider"></div>
+    <div class="linkrow" id="doExport"><span class="ico">⬇</span><div class="lt"><div class="t">Export backup (JSON)</div><div class="d">Download a full snapshot</div></div></div>
+    <div class="linkrow" id="doImport"><span class="ico">⬆</span><div class="lt"><div class="t">Import / restore</div><div class="d">From a JSON backup file</div></div></div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none"/>
+    <div class="divider"></div>
+    <p class="mini-note">${S.items.filter(i=>!i.archived).length} items · ${S.locations.filter(l=>!l.archived).length} locations · ${S.log.length} log events. Data is stored on this device and persists between visits.</p>
+  `;
+  el.querySelectorAll('[data-go]').forEach(r=>r.onclick=()=>{ ui.settingsView=r.dataset.go; renderSettings(); });
+  el.querySelector('#addRoom').onclick=openNewRoomSheet;
+  el.querySelector('#doExport').onclick=doExport;
+  el.querySelector('#doImport').onclick=()=>el.querySelector('#importFile').click();
+  el.querySelector('#importFile').onchange=handleImport;
+}
+function renderTypesView(el){
+  el.innerHTML=`<div class="section-label">Location types</div>
+    ${S.types.map(t=>`<div class="row"><span class="ico">${t.icon}</span><div class="main"><div class="name">${esc(t.name)}</div></div>
+      <button class="iconbtn" style="width:38px;height:38px;font-size:16px" data-edit="${t.id}">✎</button>
+      <button class="iconbtn" style="width:38px;height:38px;font-size:16px;color:var(--red)" data-del="${t.id}">×</button></div>`).join('')}
+    <button class="btn secondary" id="addType" style="margin-top:8px">＋ Add type</button>`;
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editType(b.dataset.edit));
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    const inUse=S.locations.some(l=>l.typeId===b.dataset.del && !l.archived);
+    if(inUse){ toast('Type is in use'); return; }
+    S.types=S.types.filter(t=>t.id!==b.dataset.del); queueSave(); renderSettings();
+  });
+  el.querySelector('#addType').onclick=()=>editType(null);
+}
+function editType(id){
+  const t=id?typeById(id):{icon:'📦',name:''};
+  openSheet(`<h2>${id?'Edit':'New'} type</h2>
+    <div class="field" style="margin-top:8px"><label class="fld">Icon (emoji)</label><input class="input" id="tyIcon" value="${esc(t.icon)}" maxlength="4" style="font-size:22px"/></div>
+    <div class="field"><label class="fld">Name</label><input class="input" id="tyName" value="${esc(t.name)}" placeholder="e.g. Drawer"/></div>
+    <button class="btn" id="tySave">Save</button><button class="btn ghost" id="tyCancel" style="margin-top:10px">Cancel</button>`);
+  document.getElementById('tyCancel').onclick=closeSheet;
+  document.getElementById('tySave').onclick=()=>{ const icon=document.getElementById('tyIcon').value.trim()||'📦'; const name=document.getElementById('tyName').value.trim();
+    if(!name){toast('Name it');return;}
+    if(id){ t.icon=icon; t.name=name; } else { S.types.push({id:uid('ty'),icon,name}); }
+    queueSave(); closeSheet(); renderSettings(); };
+}
+function renderTagsView(el){
+  const counts={}; S.items.filter(i=>!i.archived).forEach(i=>i.tags.forEach(t=>counts[t]=(counts[t]||0)+1));
+  const tags=[...new Set([...S.tags,...Object.keys(counts)])].sort();
+  el.innerHTML=`<div class="section-label">Tags · ${tags.length}</div>
+    ${tags.map(t=>`<div class="row"><div class="main"><div class="name">${esc(t)}</div><div class="sub">${counts[t]||0} item${(counts[t]||0)!==1?'s':''}</div></div>
+      <button class="iconbtn" style="width:38px;height:38px;font-size:16px" data-rt="${esc(t)}">✎</button></div>`).join('')}
+    <p class="mini-note">Renaming a tag updates it across all items.</p>`;
+  el.querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{
+    const old=b.dataset.rt;
+    openSheet(`<h2>Rename tag</h2><div class="field" style="margin-top:8px"><input class="input" id="rtIn" value="${esc(old)}"/></div>
+      <button class="btn" id="rtSave">Save</button><button class="btn ghost" id="rtCancel" style="margin-top:10px">Cancel</button>`);
+    document.getElementById('rtCancel').onclick=closeSheet;
+    document.getElementById('rtSave').onclick=()=>{ const nv=document.getElementById('rtIn').value.trim().toLowerCase();
+      if(nv&&nv!==old){ S.items.forEach(i=>{ i.tags=i.tags.map(x=>x===old?nv:x); i.tags=[...new Set(i.tags)]; });
+        S.tags=[...new Set(S.tags.map(x=>x===old?nv:x))].sort();
+        for(const k in S.tagDict) if(S.tagDict[k]===old) S.tagDict[k]=nv; queueSave(); }
+      closeSheet(); renderSettings(); };
+  });
+}
+function renderArchiveView(el){
+  const ai=S.items.filter(i=>i.archived); const al=S.locations.filter(l=>l.archived);
+  el.innerHTML=`<div class="section-label">Archived locations · ${al.length}</div>
+    ${al.length?al.map(l=>`<div class="row"><span class="ico">${locIcon(l)}</span><div class="main"><div class="name">${esc(l.name)}</div></div>
+      <button class="btn secondary" style="width:auto;height:34px;padding:0 12px;font-size:13px" data-rl="${l.id}">Restore</button>
+      <button class="iconbtn" style="width:36px;height:36px;font-size:15px;color:var(--red)" data-hl="${l.id}">🗑</button></div>`).join(''):'<p class="mini-note">None</p>'}
+    <div class="section-label">Archived items · ${ai.length}</div>
+    ${ai.length?ai.map(i=>`<div class="row"><div class="main"><div class="name">${esc(i.name)}</div><div class="sub">was in ${esc(i._lastLoc?locPath(i._lastLoc):'—')}</div></div>
+      <button class="btn secondary" style="width:auto;height:34px;padding:0 12px;font-size:13px" data-ri="${i.id}">Restore</button>
+      <button class="iconbtn" style="width:36px;height:36px;font-size:15px;color:var(--red)" data-hi="${i.id}">🗑</button></div>`).join(''):'<p class="mini-note">None</p>'}`;
+  el.querySelectorAll('[data-ri]').forEach(b=>b.onclick=()=>{ const it=itemById(b.dataset.ri);
+    const dest = (it._lastLoc&&locById(it._lastLoc)&&!locById(it._lastLoc).archived)?it._lastLoc:(S.locations.find(l=>!l.archived)||{}).id;
+    it.archived=false; it.locationId=dest; logEvent({type:'item_restore',itemId:it.id,name:it.name,toLocationId:dest}); queueSave(); renderSettings(); });
+  el.querySelectorAll('[data-rl]').forEach(b=>b.onclick=()=>{ const l=locById(b.dataset.rl);
+    if(l.parentId&&locById(l.parentId)&&locById(l.parentId).archived) l.parentId=null;
+    l.archived=false; logEvent({type:'location_restore',locationId:l.id,name:l.name}); queueSave(); renderSettings(); });
+  el.querySelectorAll('[data-hi]').forEach(b=>b.onclick=()=>{ if(!confirm('Permanently delete this item? History is kept.'))return;
+    S.items=S.items.filter(i=>i.id!==b.dataset.hi); queueSave(); renderSettings(); });
+  el.querySelectorAll('[data-hl]').forEach(b=>b.onclick=()=>{ if(!confirm('Permanently delete this location? History is kept.'))return;
+    S.locations=S.locations.filter(l=>l.id!==b.dataset.hl); queueSave(); renderSettings(); });
+}
+
+/* ---------- export / import ---------- */
+function doExport(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='home-inventory-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+function handleImport(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const data=JSON.parse(r.result);
+    if(!data.items||!data.locations) throw new Error('bad');
+    openSheet(`<h2>Import backup?</h2><p class="subtitle">Found ${data.items.length} items and ${data.locations.length} locations.</p>
+      <button class="btn danger" id="impReplace">Replace everything</button>
+      <button class="btn secondary" id="impMerge" style="margin-top:10px">Merge into current</button>
+      <button class="btn ghost" id="impCancel" style="margin-top:10px">Cancel</button>`);
+    document.getElementById('impCancel').onclick=closeSheet;
+    document.getElementById('impReplace').onclick=()=>{ S=data; migrate(); persist(); closeSheet(); toast('Restored'); show('map'); };
+    document.getElementById('impMerge').onclick=()=>{ mergeData(data); persist(); closeSheet(); toast('Merged'); show('map'); };
+  }catch(err){ toast('Invalid backup file'); } };
+  r.readAsText(f); e.target.value='';
+}
+function mergeData(d){
+  const has=(arr,id)=>arr.some(x=>x.id===id);
+  (d.types||[]).forEach(t=>{ if(!has(S.types,t.id)) S.types.push(t); });
+  (d.locations||[]).forEach(l=>{ if(!has(S.locations,l.id)) S.locations.push(l); });
+  (d.items||[]).forEach(i=>{ if(!has(S.items,i.id)) S.items.push(i); });
+  (d.log||[]).forEach(e=>{ if(!has(S.log,e.id)) S.log.push(e); });
+  S.log.sort((a,b)=>a.ts-b.ts);
+  (d.tags||[]).forEach(t=>{ if(!S.tags.includes(t)) S.tags.push(t); }); S.tags.sort();
+  Object.assign(S.tagDict, d.tagDict||{});
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>show(t.dataset.tab));
+document.getElementById('settingsBtn').onclick=()=>{ ui.settingsView=null; show('settings'); };
+document.getElementById('backBtn').onclick=goBack;
+
+(async function(){
+  await load();
+  show('add');
+})();
+</script>
