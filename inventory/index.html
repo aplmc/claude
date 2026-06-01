@@ -207,8 +207,19 @@ textarea.input{height:auto;padding:12px 14px;line-height:1.4;resize:vertical;}
 .gnode-label{font-size:11px;font-weight:600;fill:var(--text);pointer-events:none;}
 .hint{font-size:12.5px;color:var(--text-3);text-align:center;margin-top:8px;}
 .mini-note{font-size:12.5px;color:var(--text-3);line-height:1.4;margin:6px 2px 0;}
+.pin-gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;padding:24px;padding-top:calc(var(--safe-t) + 24px);}
+.pinwrap{width:100%;max-width:320px;text-align:center;}
+.pinlogo{font-size:52px;margin-bottom:14px;}
+.pintitle{font-size:24px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px;}
+.pinsub{font-size:14px;color:var(--text-3);margin-bottom:22px;line-height:1.4;}
+.pininput{width:100%;height:58px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:14px;text-align:center;font-size:28px;letter-spacing:10px;color:var(--text);
+  outline:none;font-variant-numeric:tabular-nums;}
+.pininput:focus{border-color:var(--accent);}
 </style>
 
+<div id="pinGate" class="pin-gate"></div>
 <div class="app">
   <div class="topbar">
     <button class="iconbtn" id="backBtn" style="display:none" aria-label="Back">‹</button>
@@ -265,9 +276,18 @@ let _db = null;
 const SUPA = {
   url:  'https://fvtczsnykpunlipgdics.supabase.co',
   key:  'sb_publishable_JeD1ukF-fRgZrouEqKogbA_dOHnQi20',
-  household: 'hk_-OaSguSIVcQACXAdvH21lrhP5AWhaBTd',
+  salt: 'hk_-OaSguSIVcQACXAdvH21lrhP5AWhaBTd',  // mixed with PIN to derive the key
+  household: null,   // set after PIN entry, via deriveHousehold()
   table: 'inventory_store'
 };
+// Derive the per-household key from the PIN. Wrong PIN -> different key ->
+// the server row simply isn't found, so no data can load without the PIN.
+async function deriveHousehold(pin){
+  const enc = new TextEncoder().encode(SUPA.salt + ':' + pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  const hex = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  return 'hh_' + hex.slice(0,32);
+}
 let _syncState = 'idle';   // idle | syncing | offline | error
 let _pendingPush = false;
 
@@ -289,10 +309,11 @@ function idbGet(key){ return new Promise((res)=>{ openDB().then(db=>{ if(!db) re
 function idbSet(key,val){ return new Promise((res)=>{ openDB().then(db=>{ if(!db) return res(false);
   try{ const tx=db.transaction(STORE,'readwrite').objectStore(STORE).put(val,key);
     tx.onsuccess=()=>res(true); tx.onerror=()=>res(false);}catch(e){res(false);} }); }); }
-async function cacheGet(){ let r=null; try{ r=await idbGet(KEY); }catch(e){}
-  if(r==null){ try{ r=localStorage.getItem(KEY); }catch(e){} } return r; }
-async function cacheSet(raw){ try{ await idbSet(KEY,raw); }catch(e){}
-  try{ localStorage.setItem(KEY,raw); }catch(e){} }
+function cacheKey(){ return KEY + ':' + (SUPA.household||'none'); }
+async function cacheGet(){ const k=cacheKey(); let r=null; try{ r=await idbGet(k); }catch(e){}
+  if(r==null){ try{ r=localStorage.getItem(k); }catch(e){} } return r; }
+async function cacheSet(raw){ const k=cacheKey(); try{ await idbSet(k,raw); }catch(e){}
+  try{ localStorage.setItem(k,raw); }catch(e){} }
 
 /* ---- Supabase REST ---- */
 function supaHeaders(extra){
@@ -321,30 +342,37 @@ async function supaPush(stateObj){
 
 function setSync(s){ _syncState=s; updateSyncBadge(); }
 
-async function load(){
-  // 1) instant: cache first so UI never blocks
+/* Unlock with a PIN: derive the key, then check the server.
+   Returns: 'loaded' (existing inventory found), 'new' (nothing under this PIN
+   yet — caller confirms before seeding), or 'offline' (couldn't reach server,
+   ran from cache if available). */
+async function unlock(pin){
+  SUPA.household = await deriveHousehold(pin);
+  // try cache for this household first (instant + offline)
   const cached = await cacheGet();
   if(cached){ try{ S=JSON.parse(cached); migrate(); }catch(e){ S=null; } }
-
-  // 2) authoritative: pull from server, reconcile
   try{
     setSync('syncing');
     const row = await supaPull();
     if(row && row.data && row.data.items){
-      S = row.data; migrate();
-      await cacheSet(JSON.stringify(S));
-    } else {
-      // server empty -> first run. Seed from cache if present, else SEED.
-      if(!S){ S = JSON.parse(JSON.stringify(SEED)); migrate(); }
-      await supaPush(S);
-      await cacheSet(JSON.stringify(S));
+      S = row.data; migrate(); await cacheSet(JSON.stringify(S));
+      setSync('idle'); return 'loaded';
     }
+    // nothing on server under this PIN
     setSync('idle');
+    if(cached && S && S.items){ return 'loaded'; } // had local cache for this PIN
+    return 'new';
   }catch(e){
-    // offline or server error -> run on cache (or seed) and flag for later push
-    if(!S){ S = JSON.parse(JSON.stringify(SEED)); migrate(); await cacheSet(JSON.stringify(S)); }
     setSync('offline');
+    if(S && S.items) return 'loaded';   // offline but we have cache for this PIN
+    return 'offline';
   }
+}
+// Called only when the user confirms setting up a brand-new inventory for a PIN.
+async function seedNewHousehold(){
+  S = JSON.parse(JSON.stringify(SEED)); migrate();
+  await cacheSet(JSON.stringify(S));
+  try{ await supaPush(S); setSync('idle'); }catch(e){ schedulePush(); }
 }
 
 let saveTimer=null, pushTimer=null;
@@ -1375,14 +1403,62 @@ function mergeData(d){
 }
 
 /* =========================================================================
-   BOOT
+   BOOT  —  PIN gate first, then the app
    ========================================================================= */
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>show(t.dataset.tab));
 document.getElementById('settingsBtn').onclick=()=>{ ui.settingsView=null; show('settings'); };
 document.getElementById('backBtn').onclick=goBack;
 
-(async function(){
-  await load();
+function startApp(){
+  document.getElementById('pinGate').style.display='none';
+  document.querySelector('.app').style.display='flex';
   show('add');
-})();
+}
+
+function renderPinGate(mode, msg){
+  // mode: 'enter' (normal) or 'confirm-new' (offer to set up)
+  const g=document.getElementById('pinGate');
+  g.innerHTML=`
+    <div class="pinwrap">
+      <div class="pinlogo">🧹</div>
+      <div class="pintitle">Home Inventory</div>
+      <div class="pinsub" id="pinSub">${msg||'Enter your PIN'}</div>
+      <input id="pinField" class="pininput" inputmode="numeric" pattern="[0-9]*"
+             autocomplete="off" maxlength="12" placeholder="••••" />
+      <button class="btn" id="pinGo" style="margin-top:18px">Unlock</button>
+      <div id="pinExtra" style="margin-top:14px"></div>
+    </div>`;
+  const field=document.getElementById('pinField');
+  const go=document.getElementById('pinGo');
+  setTimeout(()=>field.focus(),200);
+  field.onkeydown=(e)=>{ if(e.key==='Enter') attempt(); };
+  go.onclick=attempt;
+
+  async function attempt(){
+    const pin=(field.value||'').trim();
+    if(pin.length<3){ document.getElementById('pinSub').textContent='PIN must be at least 3 digits'; return; }
+    go.disabled=true; go.textContent='Checking…';
+    const result=await unlock(pin);
+    if(result==='loaded'){ startApp(); return; }
+    if(result==='offline'){
+      document.getElementById('pinSub').textContent='Can’t reach the server, and no local copy for this PIN. Check your connection and try again.';
+      go.disabled=false; go.textContent='Unlock'; return;
+    }
+    // result === 'new'  -> either a wrong PIN, or a genuine first-time setup
+    go.disabled=false; go.textContent='Unlock';
+    document.getElementById('pinSub').textContent='No inventory found for this PIN.';
+    document.getElementById('pinExtra').innerHTML=`
+      <p class="mini-note" style="text-align:center">If you mistyped, try again. If this is your first time, you can set up a new inventory under this PIN.</p>
+      <button class="btn secondary" id="pinSetup">Set up a new inventory with this PIN</button>`;
+    document.getElementById('pinSetup').onclick=async()=>{
+      document.getElementById('pinSetup').disabled=true;
+      await seedNewHousehold();
+      startApp();
+    };
+  }
+}
+
+// hide the app shell until unlocked, show the gate
+document.querySelector('.app').style.display='none';
+renderPinGate('enter');
 </script>
