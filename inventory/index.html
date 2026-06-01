@@ -213,6 +213,7 @@ textarea.input{height:auto;padding:12px 14px;line-height:1.4;resize:vertical;}
   <div class="topbar">
     <button class="iconbtn" id="backBtn" style="display:none" aria-label="Back">‹</button>
     <h1 id="title">Inventory</h1>
+    <span id="syncBadge" style="font-size:15px;width:22px;text-align:center;flex:none" title="Saved"></span>
     <button class="iconbtn" id="settingsBtn" aria-label="Settings">⚙</button>
   </div>
 
@@ -250,64 +251,141 @@ let S = null;              // live state
 let ui = { tab:'add', detailLocId:null, detailItemId:null, settingsView:null,
            stickyLoc: null, mapMode:'tree', treeOpen:{}, prevTab:'add' };
 
-/* ---------- persistence (IndexedDB, with localStorage fallback) ----------
-   Storage layer is self-contained: works from any hosted URL or opened
-   directly. IndexedDB is the primary store (durable, eviction-resistant for
-   installed PWAs); localStorage is a mirror/fallback for resilience. */
+/* ---------- persistence: Supabase (source of truth) + IndexedDB cache ----
+   - Local IndexedDB cache makes the app open instantly and work offline.
+   - Supabase holds the durable, permanent copy (no eviction, survives device
+     loss / new phone / browser change).
+   - On load: show cache immediately, then pull from server and reconcile.
+   - On save: write cache now, push to server (debounced). If offline, mark
+     pending and flush when back online. */
 const KEY = 'homeinv:data:v1';
 const DB_NAME = 'homeinv', STORE = 'kv', DB_VER = 1;
 let _db = null;
 
+const SUPA = {
+  url:  'https://fvtczsnykpunlipgdics.supabase.co',
+  key:  'sb_publishable_JeD1ukF-fRgZrouEqKogbA_dOHnQi20',
+  household: 'hk_-OaSguSIVcQACXAdvH21lrhP5AWhaBTd',
+  table: 'inventory_store'
+};
+let _syncState = 'idle';   // idle | syncing | offline | error
+let _pendingPush = false;
+
+/* ---- IndexedDB cache ---- */
 function openDB(){
   return new Promise((resolve)=>{
     if(_db) return resolve(_db);
     if(!('indexedDB' in window)) return resolve(null);
-    let req;
-    try{ req = indexedDB.open(DB_NAME, DB_VER); }
-    catch(e){ return resolve(null); }
+    let req; try{ req = indexedDB.open(DB_NAME, DB_VER); }catch(e){ return resolve(null); }
     req.onupgradeneeded = ()=>{ const db=req.result;
       if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE); };
     req.onsuccess = ()=>{ _db=req.result; resolve(_db); };
-    req.onerror  = ()=>{ resolve(null); };
+    req.onerror  = ()=>resolve(null);
   });
 }
-function idbGet(key){
-  return new Promise((resolve)=>{ openDB().then(db=>{
-    if(!db) return resolve(null);
-    try{ const tx=db.transaction(STORE,'readonly').objectStore(STORE).get(key);
-      tx.onsuccess=()=>resolve(tx.result ?? null); tx.onerror=()=>resolve(null);
-    }catch(e){ resolve(null); }
-  }); });
+function idbGet(key){ return new Promise((res)=>{ openDB().then(db=>{ if(!db) return res(null);
+  try{ const tx=db.transaction(STORE,'readonly').objectStore(STORE).get(key);
+    tx.onsuccess=()=>res(tx.result ?? null); tx.onerror=()=>res(null);}catch(e){res(null);} }); }); }
+function idbSet(key,val){ return new Promise((res)=>{ openDB().then(db=>{ if(!db) return res(false);
+  try{ const tx=db.transaction(STORE,'readwrite').objectStore(STORE).put(val,key);
+    tx.onsuccess=()=>res(true); tx.onerror=()=>res(false);}catch(e){res(false);} }); }); }
+async function cacheGet(){ let r=null; try{ r=await idbGet(KEY); }catch(e){}
+  if(r==null){ try{ r=localStorage.getItem(KEY); }catch(e){} } return r; }
+async function cacheSet(raw){ try{ await idbSet(KEY,raw); }catch(e){}
+  try{ localStorage.setItem(KEY,raw); }catch(e){} }
+
+/* ---- Supabase REST ---- */
+function supaHeaders(extra){
+  return Object.assign({
+    'apikey': SUPA.key,
+    'Authorization': 'Bearer '+SUPA.key,
+    'x-household': SUPA.household,
+    'Content-Type': 'application/json'
+  }, extra||{});
 }
-function idbSet(key,val){
-  return new Promise((resolve)=>{ openDB().then(db=>{
-    if(!db) return resolve(false);
-    try{ const tx=db.transaction(STORE,'readwrite').objectStore(STORE).put(val,key);
-      tx.onsuccess=()=>resolve(true); tx.onerror=()=>resolve(false);
-    }catch(e){ resolve(false); }
-  }); });
+async function supaPull(){
+  const url = SUPA.url+'/rest/v1/'+SUPA.table+'?household=eq.'+encodeURIComponent(SUPA.household)+'&select=data,updated_at';
+  const res = await fetch(url, { headers: supaHeaders() });
+  if(!res.ok) throw new Error('pull '+res.status);
+  const rows = await res.json();
+  return rows && rows.length ? rows[0] : null;
+}
+async function supaPush(stateObj){
+  const url = SUPA.url+'/rest/v1/'+SUPA.table+'?on_conflict=household';
+  const body = [{ household: SUPA.household, data: stateObj, updated_at: new Date().toISOString() }];
+  const res = await fetch(url, { method:'POST',
+    headers: supaHeaders({ 'Prefer':'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(body) });
+  if(!res.ok) throw new Error('push '+res.status+' '+(await res.text().catch(()=>'')));
 }
 
+function setSync(s){ _syncState=s; updateSyncBadge(); }
+
 async function load(){
-  let raw=null;
-  try{ raw = await idbGet(KEY); }catch(e){}
-  if(raw==null){ try{ raw = localStorage.getItem(KEY); }catch(e){} } // fallback / migrate
-  if(raw){ try{ S=JSON.parse(raw); migrate(); return; }catch(e){} }
-  // first run: seed
-  S = JSON.parse(JSON.stringify(SEED));
-  migrate();
-  await persist();
+  // 1) instant: cache first so UI never blocks
+  const cached = await cacheGet();
+  if(cached){ try{ S=JSON.parse(cached); migrate(); }catch(e){ S=null; } }
+
+  // 2) authoritative: pull from server, reconcile
+  try{
+    setSync('syncing');
+    const row = await supaPull();
+    if(row && row.data && row.data.items){
+      S = row.data; migrate();
+      await cacheSet(JSON.stringify(S));
+    } else {
+      // server empty -> first run. Seed from cache if present, else SEED.
+      if(!S){ S = JSON.parse(JSON.stringify(SEED)); migrate(); }
+      await supaPush(S);
+      await cacheSet(JSON.stringify(S));
+    }
+    setSync('idle');
+  }catch(e){
+    // offline or server error -> run on cache (or seed) and flag for later push
+    if(!S){ S = JSON.parse(JSON.stringify(SEED)); migrate(); await cacheSet(JSON.stringify(S)); }
+    setSync('offline');
+  }
 }
-let saveTimer=null;
+
+let saveTimer=null, pushTimer=null;
 async function persist(){
   const raw = JSON.stringify(S);
-  let ok=false;
-  try{ ok = await idbSet(KEY, raw); }catch(e){}
-  try{ localStorage.setItem(KEY, raw); }catch(e){ /* quota / private mode */ }
-  if(!ok){ try{ localStorage.getItem(KEY); ok=true; }catch(e){} }
-  if(!ok){ toast('Heads up: storage unavailable — export a backup'); }
+  await cacheSet(raw);                 // local cache: always, immediately
+  schedulePush();                      // server: debounced
 }
-function queueSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist, 120); }
+function queueSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist,120); }
+function schedulePush(){
+  _pendingPush = true;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(flushPush, 600);
+}
+async function flushPush(){
+  if(!_pendingPush) return;
+  try{
+    setSync('syncing');
+    await supaPush(S);
+    _pendingPush=false;
+    setSync('idle');
+  }catch(e){
+    // network down or server error -> keep pending, retry shortly
+    setSync(navigator.onLine===false ? 'offline' : 'error');
+    clearTimeout(pushTimer); pushTimer=setTimeout(flushPush, 4000);
+  }
+}
+// flush when connectivity returns
+if(typeof window!=='undefined'){
+  window.addEventListener('online', ()=>{ if(_pendingPush) flushPush(); });
+}
+
+/* sync status badge in the top bar */
+function updateSyncBadge(){
+  const el=document.getElementById('syncBadge'); if(!el) return;
+  const map={ idle:['✓','Saved','var(--green)'], syncing:['↻','Syncing…','var(--text-3)'],
+    offline:['⚠','Offline — saved locally','var(--amber)'], error:['⚠','Sync error — retrying','var(--red)'] };
+  const [ico,label,color]=map[_syncState]||map.idle;
+  el.innerHTML='<span style="color:'+color+'">'+ico+'</span>';
+  el.title=label;
+}
 function migrate(){
   S.types     = S.types     || [];
   S.tags      = S.tags      || [];
