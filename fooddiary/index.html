@@ -330,11 +330,12 @@ const DB_NAME = 'FOODDIARY', STORE = 'kv', DB_VER = 1;
 let _db = null;
 
 const SUPA = {
-  url:  'https://rslantdetazrtoibfboz.supabase.co',          // <-- paste Project URL (Settings → API)
-  key:  'sb_publishable_VHTJcOK9_ywIUcL2JZBdtw_zeMAAvKz',                   // <-- paste publishable/anon key
-  salt: 'fd_8K3mZqorhealthaustinSALT_91xQ',      // random, baked-in
+  url:  'https://rslantdetazrtoibfboz.supabase.co',
+  key:  'sb_publishable_VHTJcOK9_ywIUcL2JZBdtw_zeMAAvKz',
+  salt: 'fd_8K3mZqorhealthaustinSALT_91xQ',
   household: null,
-  table: 'fooddiary_store'
+  table: 'fooddiary_store',
+  fn:   'https://rslantdetazrtoibfboz.supabase.co/functions/v1/estimate-macros'
 };
 
 async function deriveHousehold(pin){
