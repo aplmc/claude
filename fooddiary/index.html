@@ -280,6 +280,8 @@ input,select,textarea{font:inherit;}
     </select>
   </div>
 
+  <button class="btn secondary" id="estBtn" onclick="llmEstimate()" style="margin:0 0 12px">✨ Estimate macros</button>
+  
   <div class="estnote" id="estNote" style="display:none">
     <span>⚠︎ Estimated macros — tap a number to adjust</span>
     <button onclick="reEstimate()">Re-estimate</button>
@@ -577,8 +579,7 @@ function openAdd(){
   document.getElementById('estNote').style.display='none';
   openSheet();
   // live re-estimate as they type the food/portion
-  const f=document.getElementById('fFood'), q=document.getElementById('fQty');
-  f.oninput=q.oninput=liveEstimate;
+  document.getElementById('fFood').oninput=document.getElementById('fQty').oninput=null;
   setTimeout(()=>f.focus(),250);
 }
 function openEdit(id){
