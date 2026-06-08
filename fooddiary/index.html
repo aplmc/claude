@@ -611,7 +611,32 @@ function liveEstimate(){
   for(const k in map){ if(!edited[k]) document.getElementById(map[k]).value=est[k]; }
   document.getElementById('estNote').style.display='flex';
 }
-function reEstimate(){ edited={}; liveEstimate(); }
+function reEstimate(){ edited={}; liveEstimate(); }   // offline keyword fallback
+
+async function llmEstimate(){
+  const food=document.getElementById('fFood').value.trim();
+  const qty=document.getElementById('fQty').value.trim();
+  if(!food){ toast('Enter a food first'); return; }
+  const btn=document.getElementById('estBtn');
+  btn.disabled=true; btn.textContent='Estimating…';
+  try{
+    const res=await fetch(SUPA.fn,{ method:'POST',
+      headers:{ 'Content-Type':'application/json','apikey':SUPA.key,'Authorization':'Bearer '+SUPA.key },
+      body:JSON.stringify({ food, portion:qty }) });
+    if(!res.ok) throw new Error('fn '+res.status);
+    const m=await res.json();
+    if(m.error) throw new Error(m.error);
+    const map={P:'mP',F:'mF',C:'mC',K:'mK',Sat:'mSat',Fib:'mFib',Sug:'mSug',Na:'mNa'};
+    for(const k in map){ document.getElementById(map[k]).value=m[k]; }
+    edited={}; // mark as estimate (not hand-entered) so it's flagged on print
+    document.getElementById('estNote').style.display='flex';
+    toast('Estimated by AI');
+  }catch(e){
+    liveEstimate();  // fall back to offline keyword guess
+    toast('Offline — used rough guess');
+  }
+  btn.disabled=false; btn.textContent='✨ Estimate macros';
+}
 function markEdited(k){ edited[k]=1;
   // if user edits P/F/C and hasn't touched kcal, recompute kcal live
   if((k==='P'||k==='F'||k==='C') && !edited.K){
